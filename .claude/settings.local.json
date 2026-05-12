@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir \"D:\\\\Ndog Jancok\\\\poultry-saas\")",
+      "Bash(Get-ChildItem -Path \"D:\\\\Ndog Jancok\\\\poultry-saas\" -Recurse -Force)",
+      "Bash(Select-Object FullName)",
+      "Bash(ConvertTo-Csv -NoTypeInformation)",
+      "Bash(Out-String)",
+      "mcp__f6391bd2-f968-42af-a0f6-17802834c3fa__list_tables",
+      "mcp__f6391bd2-f968-42af-a0f6-17802834c3fa__execute_sql",
+      "mcp__f6391bd2-f968-42af-a0f6-17802834c3fa__apply_migration",
+      "Bash(npx tsc *)",
+      "Bash(dir /s /b supabase\\\\*.sql)",
+      "Bash(Get-Content -Path supabase\\\\*.sql -Raw)",
+      "Bash(Select-String -Pattern \"CREATE.*VIEW|egg_stock_ledger\" -Context 5)",
+      "mcp__f6391bd2-f968-42af-a0f6-17802834c3fa__list_projects"
+    ]
+  }
+}
