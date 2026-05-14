@@ -79,6 +79,11 @@ export async function submitEggSale(payload: SalePayload): Promise<ActionResult>
   }
 
   // ── 4. Safe INSERT — total_revenue excluded (GENERATED ALWAYS AS) ──────────
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { success: false, error: 'Sesi tidak valid. Silakan login ulang.', code: 'DB_ERROR' };
+  }
+
   const { error: insertError } = await supabase.from('finance_income').insert({
     date: payload.date,
     category: payload.category,
@@ -87,6 +92,7 @@ export async function submitEggSale(payload: SalePayload): Promise<ActionResult>
     price_per_unit: payload.price_per_unit,
     buyer_name: payload.buyer_name ?? null,
     description: payload.description ?? null,
+    user_id: user.id,
   });
 
   if (insertError) {
@@ -117,6 +123,11 @@ export async function submitGenericIncome(payload: SalePayload): Promise<ActionR
 
   const supabase = await createClient();
 
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { success: false, error: 'Sesi tidak valid. Silakan login ulang.', code: 'DB_ERROR' };
+  }
+
   const { error } = await supabase.from('finance_income').insert({
     date: payload.date,
     category: payload.category,
@@ -125,6 +136,7 @@ export async function submitGenericIncome(payload: SalePayload): Promise<ActionR
     price_per_unit: payload.price_per_unit,
     buyer_name: payload.buyer_name ?? null,
     description: payload.description ?? null,
+    user_id: user.id,
   });
 
   if (error) {
