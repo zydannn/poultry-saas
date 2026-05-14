@@ -18,10 +18,6 @@ export type ActionResult =
   | { success: true }
   | { success: false; error: string; code: 'INSUFFICIENT_STOCK' | 'INVALID_INPUT' | 'DB_ERROR' };
 
-// ─── Stock Ledger Row ─────────────────────────────────────────────────────────
-interface StockLedgerRow {
-  mutasi_bersih: number;
-}
 
 /**
  * submitEggSale
@@ -48,24 +44,30 @@ export async function submitEggSale(payload: SalePayload): Promise<ActionResult>
 
   const supabase = await createClient();
 
-  // ── 2. Fetch current stock from ledger view ────────────────────────────────
-  const { data: ledgerRows, error: ledgerError } = await supabase
-    .from('egg_stock_ledger')
-    .select('mutasi_bersih');
+  // ── 2. Hitung stok telur langsung dari sumber data ────────────────────────
+  // Stok = total panen (good_eggs) - total pecah (broken_eggs) - total terjual
+  const [
+    { data: dailyRows, error: dailyError },
+    { data: salesRows, error: salesError },
+  ] = await Promise.all([
+    supabase.from('daily_records').select('good_eggs, broken_eggs'),
+    supabase.from('finance_income').select('quantity').eq('category', 'Penjualan Telur'),
+  ]);
 
-  if (ledgerError) {
-    console.error('[submitEggSale] Ledger fetch error:', ledgerError.message);
+  if (dailyError || salesError) {
+    const msg = dailyError?.message ?? salesError?.message ?? 'Unknown';
+    console.error('[submitEggSale] Stock fetch error:', msg);
     return {
       success: false,
-      error: `Gagal membaca stok inventaris: ${ledgerError.message}`,
+      error: `Gagal membaca stok telur: ${msg}`,
       code: 'DB_ERROR',
     };
   }
 
-  const currentStock = (ledgerRows as StockLedgerRow[]).reduce(
-    (sum, row) => sum + (Number(row.mutasi_bersih) || 0),
-    0
-  );
+  const totalPanen = (dailyRows ?? []).reduce((s, r) => s + (Number(r.good_eggs)  || 0), 0);
+  const totalPecah = (dailyRows ?? []).reduce((s, r) => s + (Number(r.broken_eggs) || 0), 0);
+  const totalSold  = (salesRows ?? []).reduce((s, r) => s + (Number(r.quantity)    || 0), 0);
+  const currentStock = Math.max(0, totalPanen - totalPecah - totalSold);
 
   // ── 3. Business rule: reject if sellQty > currentStock ────────────────────
   if (payload.quantity > currentStock) {
