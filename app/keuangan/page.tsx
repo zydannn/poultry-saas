@@ -288,11 +288,15 @@ export default function FinancePage() {
     setExpenseError(null);
     setExpenseSuccess(false);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Sesi tidak valid. Silakan login ulang.');
+
       const payload = {
         date: expenseForm.date,
         category: expenseForm.category,
         description: expenseForm.description,
-        amount: Number(expenseForm.amount)
+        amount: Number(expenseForm.amount),
+        user_id: user.id,
       };
 
       const { error } = await supabase.from('finance_expenses').insert(payload);
