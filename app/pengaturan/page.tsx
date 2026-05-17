@@ -31,9 +31,9 @@ export default function SettingsPage() {
 
   // Card 1: Farm Profile State
   const [profile, setProfile] = useState({
-    farmName: 'Berkah Makmur Poultry',
-    ownerName: 'Budi Santoso',
-    location: 'Jl. Raya Peternakan No. 12, Jawa Timur',
+    farmName: '',
+    ownerName: '',
+    location: '',
   });
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profileSuccess, setProfileSuccess] = useState(false);
@@ -137,12 +137,14 @@ export default function SettingsPage() {
         .eq('id', settingsId);
       errorMsg = res.error?.message;
     } else {
+      const { data: { user } } = await supabase.auth.getUser();
       const res = await supabase
         .from('farm_profile')
         .insert({
           farm_name: profile.farmName,
           owner_name: profile.ownerName,
           location: profile.location,
+          user_id: user?.id,
         })
         .select('id')
         .maybeSingle();
@@ -183,6 +185,7 @@ export default function SettingsPage() {
         .eq('id', settingsId);
       error = res.error;
     } else {
+      const { data: { user } } = await supabase.auth.getUser();
       const res = await supabase
         .from('farm_profile')
         .insert({
@@ -193,6 +196,7 @@ export default function SettingsPage() {
           standard_feed_per_bird_kg: Number(parameters.standardFeedPerBirdKg),
           bird_depreciation_per_day: Number(parameters.birdDepreciationPerDay),
           target_hdp_percent: Number(parameters.targetHdpPercent),
+          user_id: user?.id,
         })
         .select('id')
         .maybeSingle();
@@ -260,9 +264,10 @@ export default function SettingsPage() {
         .eq('id', settingsId);
       errorMsg = res.error?.message;
     } else {
+      const { data: { user } } = await supabase.auth.getUser();
       const res = await supabase
         .from('farm_profile')
-        .insert({ show_help_bubble: newVal })
+        .insert({ show_help_bubble: newVal, user_id: user?.id })
         .select('id')
         .maybeSingle();
       if (res.data) setSettingsId(res.data.id);

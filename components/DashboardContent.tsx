@@ -101,10 +101,12 @@ export default function DashboardContent() {
     const [ledgerData, setLedgerData] = useState<LedgerEntry[]>([]);
     const [isLoadingLedger, setIsLoadingLedger] = useState(false);
     const [showOnboarding, setShowOnboarding] = useState(false);
+    const [fetchError, setFetchError] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchData = async () => {
             setIsLoading(true);
+            setFetchError(null);
             try {
                 const onboardingDismissed = localStorage.getItem('poultryos_onboarding_done');
                 const today = new Date().toISOString().split('T')[0];
@@ -228,6 +230,7 @@ export default function DashboardContent() {
 
             } catch (err) {
                 console.error('Failed to fetch dashboard data:', err);
+                setFetchError('Gagal memuat data dasbor. Periksa koneksi internet Anda dan coba refresh halaman.');
             } finally {
                 setIsLoading(false);
             }
@@ -367,6 +370,23 @@ export default function DashboardContent() {
                     Panduan
                 </button>
             </div>
+
+            {/* ── Fetch Error Banner ───────────────────────────────────────────── */}
+            {fetchError && (
+                <div className="mb-6 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3.5">
+                    <AlertTriangle className="h-4 w-4 text-rose-500 shrink-0 mt-0.5" />
+                    <div>
+                        <p className="text-sm font-semibold text-rose-800">Gagal memuat data</p>
+                        <p className="text-xs text-rose-600 mt-0.5">{fetchError}</p>
+                    </div>
+                    <button
+                        onClick={() => window.location.reload()}
+                        className="ml-auto shrink-0 text-xs font-semibold text-rose-700 underline hover:no-underline"
+                    >
+                        Refresh
+                    </button>
+                </div>
+            )}
 
             {/* ── Empty State Banner: user baru tanpa data ─────────────────────── */}
             {data.hpp === 0 && data.flockStatuses.length === 0 && data.totalFeedStockKg === 0 && (

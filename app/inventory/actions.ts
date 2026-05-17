@@ -204,3 +204,69 @@ export async function submitFeedPurchase(payload: FeedPurchasePayload): Promise<
   revalidatePath('/keuangan');
   return { success: true };
 }
+
+/**
+ * deleteInventoryTransaction
+ *
+ * Menghapus satu transaksi pembelian pakan dari audit trail.
+ * Juga mengurangi inventory.quantity dan menghapus finance_expenses terkait.
+ */
+export async function deleteInventoryTransaction(transactionId: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: 'Tidak terautentikasi.', code: 'DB_ERROR' };
+
+  // 1. Ambil detail transaksi yang akan dihapus
+  const { data: tx, error: txFetchErr } = await supabase
+    .from('inventory_transactions')
+    .select('id, quantity, unit_cost, transaction_date, inventory_id')
+    .eq('id', transactionId)
+    .single();
+
+  if (txFetchErr || !tx) {
+    return { success: false, error: 'Transaksi tidak ditemukan.', code: 'DB_ERROR' };
+  }
+
+  // Hanya hapus transaksi positif (pembelian) — bukan konsumsi
+  if (tx.quantity <= 0) {
+    return { success: false, error: 'Hanya entri pembelian (qty positif) yang dapat dihapus.', code: 'INVALID_INPUT' };
+  }
+
+  // 2. Kurangi inventory.quantity
+  const { data: inv } = await supabase
+    .from('inventory')
+    .select('id, quantity, item_name')
+    .eq('id', tx.inventory_id)
+    .single();
+
+  if (inv) {
+    const newQty = Math.max(0, Number(inv.quantity) - Number(tx.quantity));
+    await supabase.from('inventory').update({ quantity: newQty }).eq('id', inv.id);
+
+    // 3. Coba hapus finance_expenses yang cocok (pembelian aset inventaris)
+    const totalAmount = Number(tx.quantity) * Number(tx.unit_cost);
+    if (totalAmount > 0) {
+      await supabase
+        .from('finance_expenses')
+        .delete()
+        .eq('category', 'Pembelian Pakan')
+        .eq('date', tx.transaction_date)
+        .eq('amount', totalAmount)
+        .eq('user_id', user.id);
+    }
+  }
+
+  // 4. Hapus transaksi
+  const { error: delErr } = await supabase
+    .from('inventory_transactions')
+    .delete()
+    .eq('id', transactionId);
+
+  if (delErr) {
+    return { success: false, error: `Gagal menghapus transaksi: ${delErr.message}`, code: 'DB_ERROR' };
+  }
+
+  revalidatePath('/inventory');
+  revalidatePath('/keuangan');
+  return { success: true };
+}

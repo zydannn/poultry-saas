@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import AppShell from '@/components/AppShell';
 import { supabase } from '@/utils/supabase/client';
-import { submitFeedPurchase } from './actions';
+import { submitFeedPurchase, deleteInventoryTransaction } from './actions';
 import type { FeedPurchasePayload } from './actions';
 import {
   Package,
@@ -12,6 +12,8 @@ import {
   AlertTriangle,
   RefreshCw,
   CheckCircle2,
+  Trash2,
+  History,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -26,6 +28,14 @@ interface FeedLedgerRow {
   actual_stock: number;
 }
 
+interface PurchaseHistoryRow {
+  id: string;
+  transaction_date: string;
+  quantity: number;
+  unit_cost: number;
+  inventory: { item_name: string; category: string } | null;
+}
+
 const formatRupiah = (value: number) =>
   new Intl.NumberFormat('id-ID', {
     style: 'currency',
@@ -38,10 +48,13 @@ const formatRupiah = (value: number) =>
 
 export default function InventoryPage() {
   const [feedLedger, setFeedLedger] = useState<FeedLedgerRow[]>([]); // SSOT for display table
+  const [purchaseHistory, setPurchaseHistory] = useState<PurchaseHistoryRow[]>([]);
   const [isFetching, setIsFetching] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -56,19 +69,44 @@ export default function InventoryPage() {
   // ── Fetch SSOT aggregated stock from feed_stock_ledger view ───────────────
   const fetchLedger = useCallback(async () => {
     setIsFetching(true);
-    const { data, error } = await supabase
-      .from('feed_stock_ledger')
-      .select('*')
-      .order('feed_name', { ascending: true });
-    if (error) {
-      console.error('[InventoryPage] feed_stock_ledger error:', error.message);
+    const [ledgerRes, historyRes] = await Promise.all([
+      supabase
+        .from('feed_stock_ledger')
+        .select('*')
+        .order('feed_name', { ascending: true }),
+      supabase
+        .from('inventory_transactions')
+        .select('id, transaction_date, quantity, unit_cost, inventory:inventory_id(item_name, category)')
+        .gt('quantity', 0)
+        .order('transaction_date', { ascending: false })
+        .limit(30),
+    ]);
+    if (ledgerRes.error) {
+      console.error('[InventoryPage] feed_stock_ledger error:', ledgerRes.error.message);
     } else {
-      setFeedLedger((data as FeedLedgerRow[]) ?? []);
+      setFeedLedger((ledgerRes.data as FeedLedgerRow[]) ?? []);
+    }
+    if (!historyRes.error && historyRes.data) {
+      setPurchaseHistory(historyRes.data as unknown as PurchaseHistoryRow[]);
     }
     setIsFetching(false);
   }, []);
 
   useEffect(() => { fetchLedger(); }, [fetchLedger]);
+
+  // ── Delete purchase transaction ────────────────────────────────────────────
+  const handleDeleteTransaction = async (id: string) => {
+    if (!confirm('Hapus entri pembelian ini? Stok pakan akan berkurang sesuai jumlah yang dihapus.')) return;
+    setDeletingId(id);
+    setDeleteError(null);
+    const result = await deleteInventoryTransaction(id);
+    setDeletingId(null);
+    if (!result.success) {
+      setDeleteError(result.error);
+    } else {
+      fetchLedger();
+    }
+  };
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleChange = (
@@ -374,6 +412,83 @@ export default function InventoryPage() {
                 </table>
               </div>
             </div>
+          </div>
+
+          {/* ── Riwayat Pembelian (dengan tombol hapus) ────────────────────── */}
+          <div className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-zinc-200 flex items-center gap-2">
+              <History className="w-4 h-4 text-zinc-500" />
+              <h2 className="text-base font-semibold text-zinc-900">Riwayat Pembelian</h2>
+              <span className="ml-auto text-[10px] text-zinc-400">30 entri terbaru · hanya pembelian</span>
+            </div>
+
+            {deleteError && (
+              <div className="mx-5 mt-4 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{deleteError}</span>
+              </div>
+            )}
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm text-zinc-600">
+                <thead className="bg-zinc-50 border-b border-zinc-200 text-xs font-semibold uppercase text-zinc-500">
+                  <tr>
+                    <th className="px-5 py-3">Tanggal</th>
+                    <th className="px-5 py-3">Nama Item</th>
+                    <th className="px-5 py-3 text-right">Qty (Kg)</th>
+                    <th className="px-5 py-3 text-right">Harga/Kg</th>
+                    <th className="px-5 py-3 text-right">Total</th>
+                    <th className="px-5 py-3 text-center">Hapus</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-100">
+                  {purchaseHistory.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-zinc-400 text-sm">
+                        Belum ada riwayat pembelian.
+                      </td>
+                    </tr>
+                  ) : (
+                    purchaseHistory.map((tx) => {
+                      const total = Number(tx.quantity) * Number(tx.unit_cost);
+                      const itemName = tx.inventory?.item_name ?? '—';
+                      return (
+                        <tr key={tx.id} className="hover:bg-zinc-50/60 transition-colors">
+                          <td className="px-5 py-3 text-zinc-700">
+                            {new Date(tx.transaction_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </td>
+                          <td className="px-5 py-3 font-medium text-zinc-900">{itemName}</td>
+                          <td className="px-5 py-3 text-right font-semibold text-emerald-700">
+                            +{Number(tx.quantity).toLocaleString('id-ID')}
+                          </td>
+                          <td className="px-5 py-3 text-right text-zinc-600">
+                            {Number(tx.unit_cost).toLocaleString('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 })}
+                          </td>
+                          <td className="px-5 py-3 text-right font-medium text-zinc-800">
+                            {total.toLocaleString('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 })}
+                          </td>
+                          <td className="px-5 py-3 text-center">
+                            <button
+                              onClick={() => handleDeleteTransaction(tx.id)}
+                              disabled={deletingId === tx.id}
+                              className="p-1.5 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors disabled:opacity-40"
+                              title="Hapus entri pembelian ini"
+                            >
+                              {deletingId === tx.id
+                                ? <Loader2 className="w-4 h-4 animate-spin" />
+                                : <Trash2 className="w-4 h-4" />}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <p className="px-5 py-3 text-[10px] text-zinc-400 border-t border-zinc-100">
+              Menghapus entri akan mengurangi stok aktual dan menghapus biaya terkait dari laporan keuangan.
+            </p>
           </div>
 
         </div>

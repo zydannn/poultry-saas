@@ -2,8 +2,6 @@ import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { LanguageProvider } from '@/context/LanguageContext';
-import FloatingHelpBubble from '@/components/FloatingHelpBubble';
-
 import { SettingsProvider } from '@/context/SettingsContext';
 
 const geistSans = Geist({
@@ -32,7 +30,6 @@ export default function RootLayout({
         <SettingsProvider>
           <LanguageProvider>
             {children}
-            <FloatingHelpBubble />
           </LanguageProvider>
         </SettingsProvider>
       </body>

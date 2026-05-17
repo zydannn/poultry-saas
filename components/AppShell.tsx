@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Sidebar, MobileSidebar } from './Sidebar'; // adjust import based on your exports
+import { Sidebar, MobileSidebar } from './Sidebar';
 import Header from './Header';
+import FloatingHelpBubble from '@/components/FloatingHelpBubble';
 
 export default function AppShell({ children, userEmail }: { children: React.ReactNode, userEmail?: string }) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -22,6 +23,9 @@ export default function AppShell({ children, userEmail }: { children: React.Reac
 
       {/* 3. Mobile Drawer */}
       <MobileSidebar open={isMobileOpen} onClose={() => setIsMobileOpen(false)} />
+
+      {/* 4. Help bubble — only renders inside authenticated shell, never on login page */}
+      <FloatingHelpBubble />
     </div>
   );
 }

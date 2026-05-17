@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/utils/supabase/client';
 import { submitDailyRecord } from '../actions';
+import AppShell from '@/components/AppShell';
 import { 
   Bird, 
   Calendar, 
@@ -120,21 +121,24 @@ export default function FlockDetailPage() {
 
   if (isLoading) {
     return (
-      <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8 bg-zinc-50 min-h-[calc(100vh-64px)] flex items-center justify-center">
-        <Loader2 className="h-8 w-8 text-emerald-600 animate-spin" />
-      </main>
+      <AppShell>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Loader2 className="h-8 w-8 text-emerald-600 animate-spin" />
+        </div>
+      </AppShell>
     );
   }
 
   if (!flock) return null;
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8 bg-zinc-50 min-h-[calc(100vh-64px)]">
-      
+    <AppShell>
+    <div className="max-w-5xl mx-auto px-0 py-2 pb-20">
+
       {/* Header with Navigation */}
       <div className="mb-8">
-        <Link href="/" className="inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-zinc-900 transition-colors mb-4">
-          <ChevronLeft className="h-4 w-4" /> Kembali ke Dasbor
+        <Link href="/flocks" className="inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-zinc-900 transition-colors mb-4">
+          <ChevronLeft className="h-4 w-4" /> Kembali ke Manajemen Kandang
         </Link>
         <div className="flex items-start justify-between">
           <div>
@@ -371,6 +375,7 @@ export default function FlockDetailPage() {
         </div>
 
       </div>
-    </main>
+    </div>
+    </AppShell>
   );
 }
