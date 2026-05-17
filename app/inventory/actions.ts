@@ -196,6 +196,7 @@ export async function submitFeedPurchase(payload: FeedPurchasePayload): Promise<
       description: `${payload.feed_name} — ${payload.quantity.toLocaleString('id-ID')} Kg @ Rp ${payload.unit_cost.toLocaleString('id-ID')}/Kg`,
       amount:      totalAmount,
       cost_type:   'Inventaris',
+      user_id:     user?.id ?? null,
     });
   }
 
