@@ -64,7 +64,11 @@ export const translations = {
         noAccount: "Don't have an account?",
         hasAccount: 'Already have an account?',
         authError: 'An error occurred. Please try again.',
-        checkEmail: 'Check your email to confirm your account!',
+        authErrorInvalidCredentials: 'Incorrect email or password. Please try again.',
+        authErrorEmailNotConfirmed: 'Your email has not been confirmed yet. Please check your inbox (or spam folder) and click the confirmation link.',
+        authErrorResendConfirmation: 'Resend confirmation email',
+        authErrorResendSuccess: 'Confirmation email resent! Please check your inbox.',
+        checkEmail: 'Account created! Check your email and click the confirmation link to activate your account.',
 
         // Daily Input Form
         dailyInputTitle: 'Daily Input',
@@ -141,7 +145,11 @@ export const translations = {
         noAccount: 'Belum punya akun?',
         hasAccount: 'Sudah punya akun?',
         authError: 'Terjadi kesalahan. Silakan coba lagi.',
-        checkEmail: 'Periksa email Anda untuk konfirmasi akun!',
+        authErrorInvalidCredentials: 'Email atau kata sandi salah. Silakan coba lagi.',
+        authErrorEmailNotConfirmed: 'Email Anda belum dikonfirmasi. Periksa kotak masuk (atau folder spam) dan klik link konfirmasi yang dikirim saat pendaftaran.',
+        authErrorResendConfirmation: 'Kirim ulang email konfirmasi',
+        authErrorResendSuccess: 'Email konfirmasi terkirim! Silakan periksa kotak masuk Anda.',
+        checkEmail: 'Akun berhasil dibuat! Periksa email Anda dan klik link konfirmasi untuk mengaktifkan akun.',
 
         // Daily Input Form
         dailyInputTitle: 'Input Harian',

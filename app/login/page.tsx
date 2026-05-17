@@ -18,6 +18,8 @@ export default function LoginPage() {
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [resending, setResending] = useState(false);
+    const [emailNotConfirmed, setEmailNotConfirmed] = useState(false);
     const [message, setMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
 
     const [showSplash, setShowSplash] = useState(false);
@@ -31,11 +33,24 @@ export default function LoginPage() {
         e.preventDefault();
         setLoading(true);
         setMessage(null);
+        setEmailNotConfirmed(false);
 
         if (tab === 'signin') {
             const { error } = await supabase.auth.signInWithPassword({ email, password });
             if (error) {
-                setMessage({ type: 'error', text: t('authError') });
+                const msg = error.message ?? '';
+                if (msg.toLowerCase().includes('email not confirmed')) {
+                    setEmailNotConfirmed(true);
+                    setMessage({ type: 'error', text: t('authErrorEmailNotConfirmed') });
+                } else if (
+                    msg.toLowerCase().includes('invalid login credentials') ||
+                    msg.toLowerCase().includes('invalid credentials') ||
+                    msg.toLowerCase().includes('user not found')
+                ) {
+                    setMessage({ type: 'error', text: t('authErrorInvalidCredentials') });
+                } else {
+                    setMessage({ type: 'error', text: t('authError') });
+                }
             } else {
                 // Show splash as a transition animation after successful login
                 setShowSplash(true);
@@ -57,6 +72,20 @@ export default function LoginPage() {
             }
         }
         setLoading(false);
+    };
+
+    const handleResendConfirmation = async () => {
+        setResending(true);
+        const { error } = await supabase.auth.resend({
+            type: 'signup',
+            email,
+            options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+        });
+        setResending(false);
+        if (!error) {
+            setEmailNotConfirmed(false);
+            setMessage({ type: 'success', text: t('authErrorResendSuccess') });
+        }
     };
 
     if (!isMounted) return null; // Avoid hydration mismatch
@@ -181,6 +210,17 @@ export default function LoginPage() {
                                     }`}
                             >
                                 {message.text}
+                                {/* Tombol kirim ulang email konfirmasi */}
+                                {emailNotConfirmed && (
+                                    <button
+                                        type="button"
+                                        onClick={handleResendConfirmation}
+                                        disabled={resending}
+                                        className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-destructive/30 bg-white/60 px-3 py-1.5 text-xs font-semibold text-destructive transition-colors hover:bg-white disabled:opacity-60"
+                                    >
+                                        {resending ? 'Mengirim…' : t('authErrorResendConfirmation')}
+                                    </button>
+                                )}
                             </div>
                         )}
 
