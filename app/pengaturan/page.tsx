@@ -48,13 +48,19 @@ export default function SettingsPage() {
     birdDepreciationPerDay: '150',
     targetHdpPercent: '80',
   });
+  const [paramsError, setParamsError] = useState<string | null>(null);
+  const [paramsSuccess, setParamsSuccess] = useState(false);
+  const [prefError, setPrefError] = useState<string | null>(null);
 
-  // Card 3: Security Mock State
+  // Card 3: Security State
   const [security, setSecurity] = useState({
-    email: 'budi.santoso@poultryos.com', // mock email
+    email: '',
     newPassword: '',
     confirmPassword: '',
   });
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
 
   // Fetch Data on Load
   useEffect(() => {
@@ -157,7 +163,8 @@ export default function SettingsPage() {
 
   const saveParameters = async (e: React.FormEvent) => {
     e.preventDefault();
-
+    setParamsError(null);
+    setParamsSuccess(false);
     setIsSavingParams(true);
     let error;
 
@@ -196,20 +203,40 @@ export default function SettingsPage() {
     setIsSavingParams(false);
 
     if (error) {
-      alert('Gagal memperbarui parameter: ' + error.message);
+      setParamsError('Gagal memperbarui parameter: ' + error.message);
     } else {
-      alert('Parameter Bisnis & HPP berhasil diperbarui!');
+      setParamsSuccess(true);
+      router.refresh();
+      setTimeout(() => setParamsSuccess(false), 4000);
     }
   };
 
-  const updatePassword = (e: React.FormEvent) => {
+  const updatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (security.newPassword !== security.confirmPassword) {
-      alert('Password baru dan konfirmasi tidak cocok!');
+    setPasswordError(null);
+    setPasswordSuccess(false);
+    if (!security.newPassword) {
+      setPasswordError('Masukkan password baru terlebih dahulu.');
       return;
     }
-    alert('Password berhasil diperbarui!');
-    setSecurity(prev => ({ ...prev, newPassword: '', confirmPassword: '' }));
+    if (security.newPassword.length < 6) {
+      setPasswordError('Password minimal 6 karakter.');
+      return;
+    }
+    if (security.newPassword !== security.confirmPassword) {
+      setPasswordError('Password baru dan konfirmasi tidak cocok. Periksa kembali.');
+      return;
+    }
+    setIsSavingPassword(true);
+    const { error } = await supabase.auth.updateUser({ password: security.newPassword });
+    setIsSavingPassword(false);
+    if (error) {
+      setPasswordError('Gagal memperbarui password: ' + error.message);
+    } else {
+      setPasswordSuccess(true);
+      setSecurity(prev => ({ ...prev, newPassword: '', confirmPassword: '' }));
+      setTimeout(() => setPasswordSuccess(false), 4000);
+    }
   };
 
 
@@ -243,7 +270,7 @@ export default function SettingsPage() {
     }
     
     if (errorMsg) {
-      alert('Gagal menyimpan preferensi: ' + errorMsg);
+      setPrefError('Gagal menyimpan preferensi: ' + errorMsg);
       // Revert state on failure
       setShowHelpBubble(!newVal);
       setGlobalShowHelpBubble(!newVal);
@@ -346,6 +373,17 @@ export default function SettingsPage() {
               <strong className="text-zinc-700">Penting:</strong> Data ini digunakan sebagai patokan dasar untuk kalkulasi estimasi BEP dan margin di Dasbor Anda.
             </p>
             <form onSubmit={saveParameters} className="space-y-5">
+              {paramsError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-sm rounded-lg">
+                  {paramsError}
+                </div>
+              )}
+              {paramsSuccess && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm rounded-lg flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 shrink-0" />
+                  Parameter Bisnis &amp; HPP berhasil diperbarui!
+                </div>
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 {/* Harga Jual Telur */}
                 <div className="space-y-1.5">
@@ -527,6 +565,9 @@ export default function SettingsPage() {
                 Menyimpan preferensi...
               </p>
             )}
+            {prefError && (
+              <p className="text-xs text-rose-600 mt-2">{prefError}</p>
+            )}
           </div>
 
           {/* Card 4: Keamanan Akun */}
@@ -536,6 +577,17 @@ export default function SettingsPage() {
               Keamanan Akun
             </h2>
             <form onSubmit={updatePassword} className="space-y-5">
+              {passwordError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-sm rounded-lg">
+                  {passwordError}
+                </div>
+              )}
+              {passwordSuccess && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm rounded-lg flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 shrink-0" />
+                  Password berhasil diperbarui!
+                </div>
+              )}
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-zinc-700">Email Aktif</label>
                 <input
@@ -571,10 +623,13 @@ export default function SettingsPage() {
               <div className="pt-2">
                 <button
                   type="submit"
-                  className="flex items-center gap-2 px-5 py-2 border border-zinc-200 bg-white text-zinc-900 rounded-lg hover:bg-zinc-50 transition-colors text-sm font-medium shadow-sm"
+                  disabled={isSavingPassword}
+                  className="flex items-center gap-2 px-5 py-2 border border-zinc-200 bg-white text-zinc-900 rounded-lg hover:bg-zinc-50 transition-colors text-sm font-medium shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  <KeyRound className="w-4 h-4 text-zinc-500" />
-                  Perbarui Password
+                  {isSavingPassword
+                    ? <><Loader2 className="w-4 h-4 animate-spin" /> Menyimpan...</>
+                    : <><KeyRound className="w-4 h-4 text-zinc-500" /> Perbarui Password</>
+                  }
                 </button>
               </div>
             </form>

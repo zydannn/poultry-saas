@@ -37,6 +37,8 @@ export default function AssetTab() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [formSuccess, setFormSuccess] = useState(false);
 
   const [assetName, setAssetName] = useState('');
   const [cost, setCost] = useState('');
@@ -63,22 +65,30 @@ export default function AssetTab() {
 
   const handleAddAsset = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
+    setFormSuccess(false);
     const costNum = Number(cost);
     const lifeNum = Number(lifeMonths);
     if (!assetName || costNum <= 0 || lifeNum <= 0 || !purchaseDate) {
-      alert('Mohon isi semua field dengan benar.');
+      setFormError('Mohon isi semua field dengan benar. Harga dan umur ekonomis harus lebih dari 0.');
       return;
     }
     setIsSubmitting(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setFormError('Sesi tidak ditemukan. Silakan login ulang.'); return; }
+
       const { error } = await supabase.from('farm_assets').insert([{
         asset_name: assetName,
         acquisition_cost: costNum,
         useful_life_months: lifeNum,
         purchase_date: purchaseDate,
+        user_id: user.id,
       }]);
-      if (error) { alert(`Gagal menyimpan data: ${error.message}`); return; }
+      if (error) { setFormError(`Gagal menyimpan data: ${error.message}`); return; }
       setAssetName(''); setCost(''); setLifeMonths(''); setPurchaseDate('');
+      setFormSuccess(true);
+      setTimeout(() => setFormSuccess(false), 3000);
       fetchData();
     } finally {
       setIsSubmitting(false);
@@ -111,6 +121,19 @@ export default function AssetTab() {
           Tambah Aset Fisik Baru
         </h3>
         <form onSubmit={handleAddAsset}>
+          {/* Feedback banners */}
+          {formError && (
+            <div className="mb-4 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              <span className="shrink-0 mt-0.5">⚠</span>
+              <span>{formError}</span>
+            </div>
+          )}
+          {formSuccess && (
+            <div className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+              <span>✓</span>
+              <span>Aset berhasil ditambahkan!</span>
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
             <div>
               <label className="block text-xs font-semibold text-zinc-700 mb-1.5 uppercase tracking-wide">Nama Aset</label>
