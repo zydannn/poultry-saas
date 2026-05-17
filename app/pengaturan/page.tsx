@@ -347,6 +347,7 @@ export default function SettingsPage() {
             </p>
             <form onSubmit={saveParameters} className="space-y-5">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                {/* Harga Jual Telur */}
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-zinc-700 flex items-center gap-1.5">
                      Harga Jual Telur
@@ -361,7 +362,10 @@ export default function SettingsPage() {
                     className="w-full px-3 py-2 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900"
                     required
                   />
+                  <p className="text-[11px] text-zinc-400 leading-relaxed">Harga yang Anda pakai saat menjual telur. Dipakai sebagai pembanding HPP — jika lebih rendah dari HPP, Anda merugi per butir.</p>
                 </div>
+
+                {/* Harga Pasar Saat Ini */}
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-zinc-700 flex items-center gap-1.5">
                     Harga Pasar Saat Ini
@@ -376,7 +380,10 @@ export default function SettingsPage() {
                     className="w-full px-3 py-2 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900"
                     required
                   />
+                  <p className="text-[11px] text-zinc-400 leading-relaxed">Harga telur di pasaran lokal hari ini. Diisi manual dan diperbarui sesuai kondisi pasar. Tampil sebagai acuan di Dashboard.</p>
                 </div>
+
+                {/* Standar Berat Telur */}
                 <div className="space-y-1.5 sm:col-span-1">
                   <label className="text-sm font-medium text-zinc-700 flex items-center gap-1.5">
                     Standar Berat Telur
@@ -391,7 +398,10 @@ export default function SettingsPage() {
                     className="w-full px-3 py-2 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900"
                     required
                   />
+                  <p className="text-[11px] text-zinc-400 leading-relaxed">Berat rata-rata per butir telur. Dipakai untuk konversi HPP/butir ke HPP/Kg. Umumnya 55–65 gram untuk layer.</p>
                 </div>
+
+                {/* Target Margin Profit */}
                 <div className="space-y-1.5 sm:col-span-1">
                   <label className="text-sm font-medium text-zinc-700 flex items-center gap-1.5">
                     Target Margin Profit
@@ -407,7 +417,10 @@ export default function SettingsPage() {
                     className="w-full px-3 py-2 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900"
                     required
                   />
+                  <p className="text-[11px] text-zinc-400 leading-relaxed">Persentase laba yang ingin dicapai. Contoh: isi 20 → sistem sarankan harga jual = HPP ÷ (1 − 20%).</p>
                 </div>
+
+                {/* Standar Pakan / Ekor */}
                 <div className="space-y-1.5 sm:col-span-1">
                   <label className="text-sm font-medium text-zinc-700 flex items-center gap-1.5">
                     Standar Pakan / Ekor
@@ -423,7 +436,10 @@ export default function SettingsPage() {
                     className="w-full px-3 py-2 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900"
                     required
                   />
+                  <p className="text-[11px] text-zinc-400 leading-relaxed">Konsumsi pakan rata-rata per ekor per hari. Standar ayam layer: 0.110–0.120 Kg. Dipakai untuk proyeksi biaya pakan.</p>
                 </div>
+
+                {/* Penyusutan Ayam / Ekor */}
                 <div className="space-y-1.5 sm:col-span-1">
                   <label className="text-sm font-medium text-zinc-700 flex items-center gap-1.5">
                     Penyusutan Ayam / Ekor
@@ -438,13 +454,15 @@ export default function SettingsPage() {
                     className="w-full px-3 py-2 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900"
                     required
                   />
+                  <p className="text-[11px] text-zinc-400 leading-relaxed">Biaya penyusutan ayam per ekor per hari. Rumus: Harga Beli Ayam ÷ Jumlah Ekor ÷ Masa Produktif (hari). Masuk ke Biaya Tetap.</p>
                 </div>
+
+                {/* Target HDP */}
                 <div className="space-y-1.5 sm:col-span-1">
                   <label className="text-sm font-medium text-zinc-700 flex items-center gap-1.5">
                     Target HDP
                     <span className="text-[10px] bg-zinc-100 px-1.5 py-0.5 rounded text-zinc-500 border border-zinc-200">% / Hari</span>
                   </label>
-                  <p className="text-[10px] text-zinc-400">Digunakan untuk proyeksi HPP saat belum ada data panen hari ini.</p>
                   <input
                     type="number"
                     name="targetHdpPercent"
@@ -455,6 +473,7 @@ export default function SettingsPage() {
                     className="w-full px-3 py-2 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900"
                     required
                   />
+                  <p className="text-[11px] text-zinc-400 leading-relaxed">Target Hen Day Production harian. Dipakai untuk memproyeksikan HPP saat belum ada data panen hari ini. Standar produktif: 75–85%.</p>
                 </div>
               </div>
               <div className="pt-2">

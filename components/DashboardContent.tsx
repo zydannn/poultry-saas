@@ -16,7 +16,9 @@ import {
     LineChart,
     Sparkles,
     X,
-    Loader2
+    Loader2,
+    Settings,
+    Bird,
 } from 'lucide-react';
 import { supabase } from '@/utils/supabase/client';
 import Link from 'next/link';
@@ -366,6 +368,40 @@ export default function DashboardContent() {
                 </button>
             </div>
 
+            {/* ── Empty State Banner: user baru tanpa data ─────────────────────── */}
+            {data.hpp === 0 && data.flockStatuses.length === 0 && data.totalFeedStockKg === 0 && (
+                <div className="mb-6 rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 p-5 shadow-sm">
+                    <div className="flex items-start gap-4">
+                        <div className="shrink-0 flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100">
+                            <Sparkles className="h-5 w-5 text-amber-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <h3 className="text-sm font-bold text-amber-900">Selamat datang! Mulai setup peternakan Anda</h3>
+                            <p className="mt-1 text-xs text-amber-700 leading-relaxed">
+                                Dashboard masih kosong karena data peternakan belum diisi. Ikuti 5 langkah berikut agar HPP, BEP, dan semua analisis berjalan otomatis.
+                            </p>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                                <Link href="/pengaturan" className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 transition-colors">
+                                    <Settings className="h-3.5 w-3.5" /> 1. Isi Pengaturan
+                                </Link>
+                                <Link href="/flocks" className="inline-flex items-center gap-1.5 rounded-lg bg-white border border-amber-200 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-50 transition-colors">
+                                    <Bird className="h-3.5 w-3.5" /> 2. Tambah Batch Ayam
+                                </Link>
+                                <Link href="/inventory" className="inline-flex items-center gap-1.5 rounded-lg bg-white border border-amber-200 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-50 transition-colors">
+                                    <Package className="h-3.5 w-3.5" /> 3. Isi Stok Pakan
+                                </Link>
+                                <button
+                                    onClick={() => setShowOnboarding(true)}
+                                    className="inline-flex items-center gap-1.5 rounded-lg bg-white border border-amber-200 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-50 transition-colors"
+                                >
+                                    Lihat Panduan Lengkap →
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="space-y-8">
 
                 {/* Tier 1 - Part 1: Basic Metrics */}
@@ -392,7 +428,9 @@ export default function DashboardContent() {
                         <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 shrink-0">
                             <Package className="h-5 w-5 text-blue-600" />
                         </div>
-                        <p className="text-[10px] font-bold tracking-wider text-zinc-500 uppercase truncate">STOK TELUR</p>
+                        <p className="text-[10px] font-bold tracking-wider text-zinc-500 uppercase truncate">
+                            <TermTooltip term="Stok Telur">STOK TELUR</TermTooltip>
+                        </p>
                         <div className="mt-1 flex items-baseline gap-1 flex-wrap">
                             <p className="text-xl md:text-2xl font-bold text-zinc-900 truncate">{formatNumber(eggStock)}</p>
                             <span className="text-[10px] sm:text-xs font-medium text-zinc-400">butir</span>
@@ -455,7 +493,9 @@ export default function DashboardContent() {
                         <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 shrink-0">
                             <Target className="h-5 w-5 text-emerald-600" />
                         </div>
-                        <p className="text-[10px] sm:text-xs font-bold text-zinc-500 uppercase tracking-wide truncate">Saran Harga Jual</p>
+                        <p className="text-[10px] sm:text-xs font-bold text-zinc-500 uppercase tracking-wide truncate">
+                            <TermTooltip term="Saran Harga Jual">Saran Harga Jual</TermTooltip>
+                        </p>
                         <div className="mt-1">
                             <p className="text-xl md:text-2xl font-bold text-emerald-600 truncate">{formatRupiah(suggestedPrice)}</p>
                         </div>
@@ -467,7 +507,9 @@ export default function DashboardContent() {
                             <LineChart className="h-5 w-5 text-violet-600" />
                         </div>
                         <div className="flex items-center justify-between mb-1">
-                            <p className="text-[10px] sm:text-xs font-bold text-zinc-500 uppercase tracking-wide truncate">Info Harga Pasar</p>
+                            <p className="text-[10px] sm:text-xs font-bold text-zinc-500 uppercase tracking-wide truncate">
+                                <TermTooltip term="Harga Pasar">Info Harga Pasar</TermTooltip>
+                            </p>
                         </div>
                         <div className="flex flex-col gap-1 w-full">
                             <div className="flex items-center justify-between bg-zinc-50 p-2 rounded-lg border border-zinc-100">
@@ -551,7 +593,9 @@ export default function DashboardContent() {
                                         </div>
                                         <div className="flex items-center gap-2 sm:gap-6 shrink-0">
                                             <div className="text-right">
-                                                <p className="text-[9px] sm:text-[10px] uppercase tracking-wider font-semibold text-zinc-400 truncate">HDP Hari Ini</p>
+                                                <p className="text-[9px] sm:text-[10px] uppercase tracking-wider font-semibold text-zinc-400 truncate">
+                                    <TermTooltip term="HDP">HDP</TermTooltip> Hari Ini
+                                </p>
                                                 <p className={`font-bold text-sm sm:text-base ${flock.hdp === '-' ? 'text-zinc-300' : 'text-zinc-900'}`}>
                                                     {flock.hdp}
                                                 </p>

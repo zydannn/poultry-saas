@@ -50,6 +50,26 @@ export const GLOSSARY: Record<string, { short: string; detail?: string }> = {
     short: 'Prinsip akuntansi: biaya diakui saat manfaatnya diterima.',
     detail: 'Pembelian pakan = aset (inventaris). Biaya pakan masuk P&L saat pakan dikonsumsi, bukan saat dibeli.',
   },
+  'Saran Harga Jual': {
+    short: 'Harga jual minimum agar mencapai target laba yang Anda tetapkan.',
+    detail: 'Dihitung: HPP ÷ (1 − target margin%). Contoh: HPP Rp 1.000 + target margin 20% → Saran Rp 1.250/butir.',
+  },
+  'Margin Profit': {
+    short: 'Persentase laba dari harga jual. Makin tinggi = makin untung.',
+    detail: 'Margin = (Harga Jual − HPP) ÷ Harga Jual × 100%. Target margin diatur di menu Pengaturan.',
+  },
+  'Harga Pasar': {
+    short: 'Harga telur yang berlaku di pasar lokal saat ini.',
+    detail: 'Diisi manual di Pengaturan. Dipakai sebagai pembanding: jika HPP Anda lebih tinggi dari harga pasar, Anda sedang merugi.',
+  },
+  'HDP': {
+    short: 'Hen Day Production — % telur yang diproduksi per ekor per hari.',
+    detail: 'HDP = (Telur Dipanen ÷ Populasi Aktif) × 100%. Standar sehat layer > 70%. Turun tajam = tanda stres atau penyakit.',
+  },
+  'Stok Telur': {
+    short: 'Jumlah telur yang sudah dipanen tapi belum terjual.',
+    detail: 'Dihitung: Total Panen − Telur Pecah − Total Terjual. Klik kartu ini untuk melihat riwayat mutasi harian.',
+  },
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
