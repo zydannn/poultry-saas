@@ -24,6 +24,11 @@ export async function createFlock(payload: CreateFlockPayload): Promise<FlockAct
 
   const supabase = await createClient();
 
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { success: false, error: 'Sesi tidak valid. Silakan login ulang.', code: 'INVALID_INPUT' };
+  }
+
   const { error: flockError } = await supabase.from('flocks').insert({
     name:                      payload.name,
     breed:                     payload.breed,
@@ -34,6 +39,7 @@ export async function createFlock(payload: CreateFlockPayload): Promise<FlockAct
     acquisition_cost_total:    payload.acquisition_cost_total > 0 ? payload.acquisition_cost_total : null,
     estimated_productive_days: payload.estimated_productive_days || 600,
     farm_asset_id:             payload.farm_asset_id ?? null,
+    user_id:                   user.id,
   });
 
   if (flockError) {
