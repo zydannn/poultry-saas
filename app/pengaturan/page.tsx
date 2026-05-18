@@ -139,13 +139,14 @@ export default function SettingsPage() {
       errorMsg = res.error?.message;
     } else {
       const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setProfileError('Sesi tidak valid. Silakan login ulang.'); setIsSavingProfile(false); return; }
       const res = await supabase
         .from('farm_profile')
         .upsert({
           farm_name: profile.farmName,
           owner_name: profile.ownerName,
           location: profile.location,
-          user_id: user?.id,
+          user_id: user.id,
         }, { onConflict: 'user_id' })
         .select('id')
         .maybeSingle();
@@ -187,6 +188,7 @@ export default function SettingsPage() {
       error = res.error;
     } else {
       const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setParamsError('Sesi tidak valid. Silakan login ulang.'); setIsSavingParams(false); return; }
       const res = await supabase
         .from('farm_profile')
         .upsert({
@@ -197,7 +199,7 @@ export default function SettingsPage() {
           standard_feed_per_bird_kg: Number(parameters.standardFeedPerBirdKg),
           bird_depreciation_per_day: Number(parameters.birdDepreciationPerDay),
           target_hdp_percent: Number(parameters.targetHdpPercent),
-          user_id: user?.id,
+          user_id: user.id,
         }, { onConflict: 'user_id' })
         .select('id')
         .maybeSingle();
@@ -266,9 +268,10 @@ export default function SettingsPage() {
       errorMsg = res.error?.message;
     } else {
       const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setPrefError('Sesi tidak valid. Silakan login ulang.'); setIsSavingPref(false); return; }
       const res = await supabase
         .from('farm_profile')
-        .upsert({ show_help_bubble: newVal, user_id: user?.id }, { onConflict: 'user_id' })
+        .upsert({ show_help_bubble: newVal, user_id: user.id }, { onConflict: 'user_id' })
         .select('id')
         .maybeSingle();
       if (res.data) setSettingsId(res.data.id);

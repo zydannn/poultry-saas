@@ -104,9 +104,8 @@ export async function submitDailyFeedConsumption(payload: FeedConsumptionPayload
  *      → inventory.unit_cost dibutuhkan oleh trigger fn_record_feed_variable_cost
  *      → inventory.quantity dibutuhkan oleh trigger otomatisasi_stok_pakan
  *   C. INSERT inventory_transactions dengan inventory_id yang benar (audit trail)
- *   D. TIDAK insert ke finance_expenses — pembelian adalah asset, bukan expense.
- *      Biaya pakan masuk ke finance_expenses secara otomatis saat konsumsi
- *      (via trigger fn_record_feed_variable_cost pada daily_records INSERT).
+ *   D. INSERT ke finance_expenses dengan cost_type='Inventaris' untuk visibilitas
+ *      arus kas keluar di halaman Keuangan (dikecualikan dari kalkulasi P&L).
  */
 export async function submitFeedPurchase(payload: FeedPurchasePayload): Promise<ActionResult> {
   // ── A. Validasi ────────────────────────────────────────────────────────────
@@ -122,6 +121,9 @@ export async function submitFeedPurchase(payload: FeedPurchasePayload): Promise<
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { success: false, error: 'Sesi tidak valid. Silakan login ulang.', code: 'DB_ERROR' };
+  }
 
   // ── B. UPSERT inventory master item ───────────────────────────────────────
   const { data: existing } = await supabase
@@ -159,7 +161,7 @@ export async function submitFeedPurchase(payload: FeedPurchasePayload): Promise<
         quantity:  payload.quantity,
         unit_cost: payload.unit_cost,
         unit:      'Kg',
-        user_id:   user?.id ?? null,
+        user_id:   user.id,
       })
       .select('id')
       .single();
@@ -178,7 +180,7 @@ export async function submitFeedPurchase(payload: FeedPurchasePayload): Promise<
       quantity:         Math.abs(payload.quantity),
       unit_cost:        payload.unit_cost,
       transaction_date: payload.transaction_date,
-      user_id:          user?.id ?? null,
+      user_id:          user.id,
     });
 
   if (txError) {
@@ -196,7 +198,7 @@ export async function submitFeedPurchase(payload: FeedPurchasePayload): Promise<
       description: `${payload.feed_name} — ${payload.quantity.toLocaleString('id-ID')} Kg @ Rp ${payload.unit_cost.toLocaleString('id-ID')}/Kg`,
       amount:      totalAmount,
       cost_type:   'Inventaris',
-      user_id:     user?.id ?? null,
+      user_id:     user.id,
     });
   }
 
