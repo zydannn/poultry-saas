@@ -144,7 +144,7 @@ export default function FinanceTab() {
             </thead>
             <tbody className="divide-y divide-zinc-200/60">
               {data.map((item, index) => {
-                const isInventaris = item.sourceTable === 'finance_expenses' && item.cost_type === 'Inventaris';
+                const isInventaris = item.sourceTable === 'finance_expenses' && (item.category?.startsWith('Pembelian') ?? false);
                 return (
                   <tr key={item.id} className={index % 2 === 0 ? 'bg-white hover:bg-zinc-50/80' : 'bg-zinc-50/50 hover:bg-zinc-50/80'}>
                     <td className="px-6 py-3 whitespace-nowrap">

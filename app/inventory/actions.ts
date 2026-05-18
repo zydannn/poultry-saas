@@ -188,8 +188,8 @@ export async function submitFeedPurchase(payload: FeedPurchasePayload): Promise<
   }
 
   // ── D. INSERT finance_expenses untuk visibilitas arus kas di Keuangan ──────
-  // cost_type: 'Inventaris' → dikecualikan dari P&L laporan, tapi tampil
-  // di Keuangan sebagai mutasi kas keluar (pembelian aset inventaris).
+  // cost_type dibiarkan NULL (DB constraint hanya izinkan 'Variable'/'Fixed').
+  // FinanceTab mendeteksi baris ini via category.startsWith('Pembelian').
   const totalAmount = payload.quantity * payload.unit_cost;
   if (totalAmount > 0) {
     await supabase.from('finance_expenses').insert({
@@ -197,7 +197,6 @@ export async function submitFeedPurchase(payload: FeedPurchasePayload): Promise<
       category:    'Pembelian Pakan',
       description: `${payload.feed_name} — ${payload.quantity.toLocaleString('id-ID')} Kg @ Rp ${payload.unit_cost.toLocaleString('id-ID')}/Kg`,
       amount:      totalAmount,
-      cost_type:   'Inventaris',
       user_id:     user.id,
     });
   }
