@@ -5,9 +5,10 @@ import AppShell from '@/components/AppShell';
 import { supabase } from '@/utils/supabase/client';
 import {
   ClipboardList, Egg, Wheat, Skull, AlertTriangle,
-  CheckCircle2, Loader2, Bird,
+  CheckCircle2, Loader2, Bird, FlaskConical, ChevronDown,
 } from 'lucide-react';
 import { submitDailyRecord } from '@/app/flocks/actions';
+import { submitDailySupplement } from '@/app/daily-input/supplement-actions';
 
 interface Flock {
   id: string;
@@ -15,6 +16,15 @@ interface Flock {
   breed: string;
   status: string;
   current_population: number;
+}
+
+interface InventoryItem {
+  id: string;
+  item_name: string;
+  category: string;
+  quantity: number;
+  unit: string;
+  unit_cost: number;
 }
 
 interface DailyRecord {
@@ -28,7 +38,7 @@ interface DailyRecord {
   mortality: number;
 }
 
-const initialForm = {
+const initialProductionForm = {
   flock_id: '',
   date: new Date().toISOString().split('T')[0],
   shift: 'Pagi',
@@ -38,18 +48,39 @@ const initialForm = {
   mortality: '',
 };
 
+const initialSupplementForm = {
+  flock_id: '',
+  date: new Date().toISOString().split('T')[0],
+  category: 'Probiotik',
+  item_name: '',
+  quantity: '',
+  unit: 'ml',
+  notes: '',
+  from_inventory: false,
+  inventory_id: '',
+};
+
 export default function DailyInputPage() {
   const [flocks, setFlocks] = useState<Flock[]>([]);
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [recentRecords, setRecentRecords] = useState<DailyRecord[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Production form state
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [form, setForm] = useState(initialForm);
+  const [form, setForm] = useState(initialProductionForm);
+
+  // Supplement form state
+  const [suppSubmitting, setSuppSubmitting] = useState(false);
+  const [suppError, setSuppError] = useState<string | null>(null);
+  const [suppSuccess, setSuppSuccess] = useState(false);
+  const [suppForm, setSuppForm] = useState(initialSupplementForm);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const [flocksRes, recordsRes] = await Promise.all([
+    const [flocksRes, recordsRes, inventoryRes] = await Promise.all([
       supabase.from('flocks').select('id, name, breed, status, current_population').order('created_at'),
       supabase
         .from('daily_records')
@@ -57,15 +88,29 @@ export default function DailyInputPage() {
         .order('date', { ascending: false })
         .order('shift', { ascending: true })
         .limit(10),
+      supabase
+        .from('inventory')
+        .select('id, item_name, category, quantity, unit, unit_cost')
+        .neq('category', 'Pakan')
+        .order('item_name'),
     ]);
 
     const flockList = (flocksRes.data ?? []) as Flock[];
     setFlocks(flockList);
+    setInventoryItems((inventoryRes.data ?? []) as InventoryItem[]);
+
+    const firstFlockId = flockList.length > 0 ? flockList[0].id : '';
 
     setForm(prev =>
       prev.flock_id || flockList.length === 0
         ? prev
-        : { ...prev, flock_id: flockList[0].id }
+        : { ...prev, flock_id: firstFlockId }
+    );
+
+    setSuppForm(prev =>
+      prev.flock_id || flockList.length === 0
+        ? prev
+        : { ...prev, flock_id: firstFlockId }
     );
 
     setRecentRecords(
@@ -94,7 +139,21 @@ export default function DailyInputPage() {
       ? ((goodEggs / selectedFlock.current_population) * 100).toFixed(1)
       : null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Auto-fill item_name and unit when inventory item is selected
+  const selectedInvItem = inventoryItems.find(i => i.id === suppForm.inventory_id);
+  useEffect(() => {
+    if (suppForm.from_inventory && selectedInvItem) {
+      setSuppForm(prev => ({
+        ...prev,
+        item_name: selectedInvItem.item_name,
+        unit: selectedInvItem.unit || prev.unit,
+      }));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suppForm.inventory_id]);
+
+  // ── Production submit ──────────────────────────────────────────────────────
+  const handleProductionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(false);
@@ -147,6 +206,49 @@ export default function DailyInputPage() {
     }
   };
 
+  // ── Supplement submit ──────────────────────────────────────────────────────
+  const handleSupplementSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSuppError(null);
+    setSuppSuccess(false);
+
+    setSuppSubmitting(true);
+    try {
+      const result = await submitDailySupplement({
+        flock_id:     suppForm.flock_id,
+        date:         suppForm.date,
+        category:     suppForm.category,
+        item_name:    suppForm.item_name,
+        quantity:     parseFloat(suppForm.quantity) || 0,
+        unit:         suppForm.unit,
+        notes:        suppForm.notes,
+        inventory_id: suppForm.from_inventory && suppForm.inventory_id
+          ? suppForm.inventory_id
+          : null,
+      });
+
+      if (!result.success) {
+        setSuppError(result.error);
+        return;
+      }
+
+      setSuppSuccess(true);
+      setSuppForm(prev => ({
+        ...prev,
+        item_name: '',
+        quantity: '',
+        notes: '',
+        inventory_id: '',
+        from_inventory: false,
+      }));
+      setTimeout(() => setSuppSuccess(false), 5000);
+    } catch (err: any) {
+      setSuppError(err?.message ?? 'Gagal menyimpan data suplemen.');
+    } finally {
+      setSuppSubmitting(false);
+    }
+  };
+
   return (
     <AppShell>
       <div className="min-h-screen bg-zinc-50 p-4 sm:p-6 pb-20">
@@ -159,23 +261,23 @@ export default function DailyInputPage() {
               Input Harian Produksi
             </h1>
             <p className="text-sm text-zinc-500 mt-1">
-              Catat produksi telur, konsumsi pakan, dan mortalitas harian.
-              Biaya variabel pakan otomatis tercatat ke HPP.
+              Catat produksi telur, konsumsi pakan, mortalitas, dan pemberian suplemen/obat harian.
             </p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
 
-            {/* ── Left: Form ────────────────────────────────────────── */}
+            {/* ── Left column ────────────────────────────────────────────── */}
             <div className="lg:col-span-2 space-y-4">
 
+              {/* Production Form */}
               <div className="bg-white border border-zinc-200 rounded-xl p-5 shadow-sm">
                 <h2 className="text-sm font-bold text-zinc-900 mb-4 flex items-center gap-2 uppercase tracking-wide">
                   <Bird className="w-4 h-4 text-amber-600" />
                   Data Produksi
                 </h2>
 
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form onSubmit={handleProductionSubmit} className="space-y-4">
 
                   {error && (
                     <div className="flex items-start gap-2 p-3 bg-rose-50 border border-rose-200 rounded-lg">
@@ -351,9 +453,225 @@ export default function DailyInputPage() {
                   </div>
                 </div>
               )}
+
+              {/* ── Supplement / Medicine Card ──────────────────────────── */}
+              <div className="bg-white border border-zinc-200 rounded-xl p-5 shadow-sm">
+                <h2 className="text-sm font-bold text-zinc-900 mb-4 flex items-center gap-2 uppercase tracking-wide">
+                  <FlaskConical className="w-4 h-4 text-emerald-600" />
+                  Suplemen &amp; Obat
+                </h2>
+
+                <form onSubmit={handleSupplementSubmit} className="space-y-4">
+
+                  {suppError && (
+                    <div className="flex items-start gap-2 p-3 bg-rose-50 border border-rose-200 rounded-lg">
+                      <AlertTriangle className="w-4 h-4 text-rose-600 mt-0.5 shrink-0" />
+                      <p className="text-xs text-rose-800 font-medium leading-snug">{suppError}</p>
+                    </div>
+                  )}
+
+                  {suppSuccess && (
+                    <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <p className="text-xs text-emerald-800 font-medium">
+                        Suplemen/obat berhasil dicatat!
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Batch */}
+                  <div>
+                    <label className="block text-xs font-semibold text-zinc-700 mb-1.5 uppercase tracking-wide">
+                      Batch Kandang
+                    </label>
+                    {flocks.length === 0 && !loading ? (
+                      <div className="px-3 py-2 border border-amber-200 bg-amber-50 rounded-lg text-xs text-amber-700">
+                        Belum ada batch aktif.
+                      </div>
+                    ) : (
+                      <select
+                        value={suppForm.flock_id}
+                        onChange={e => setSuppForm(prev => ({ ...prev, flock_id: e.target.value }))}
+                        className="w-full px-3 py-2 border border-zinc-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-zinc-900"
+                        required
+                      >
+                        <option value="">— Pilih batch —</option>
+                        {flocks.map(f => (
+                          <option key={f.id} value={f.id}>{f.name}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+
+                  {/* Date */}
+                  <div>
+                    <label className="block text-xs font-semibold text-zinc-700 mb-1.5 uppercase tracking-wide">
+                      Tanggal
+                    </label>
+                    <input
+                      type="date"
+                      value={suppForm.date}
+                      max={new Date().toISOString().split('T')[0]}
+                      onChange={e => setSuppForm(prev => ({ ...prev, date: e.target.value }))}
+                      className="w-full px-3 py-2 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900"
+                      required
+                    />
+                  </div>
+
+                  {/* Category */}
+                  <div>
+                    <label className="block text-xs font-semibold text-zinc-700 mb-1.5 uppercase tracking-wide">
+                      Kategori
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={suppForm.category}
+                        onChange={e => setSuppForm(prev => ({ ...prev, category: e.target.value }))}
+                        className="w-full px-3 py-2 border border-zinc-200 rounded-lg text-sm bg-white appearance-none focus:outline-none focus:ring-2 focus:ring-zinc-900"
+                      >
+                        <option value="Probiotik">Probiotik (EM4, dll.)</option>
+                        <option value="Vaksin">Vaksin</option>
+                        <option value="Vitamin">Vitamin</option>
+                        <option value="Obat">Obat</option>
+                        <option value="Lainnya">Lainnya</option>
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+                    </div>
+                  </div>
+
+                  {/* From Inventory toggle */}
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="from_inventory"
+                      checked={suppForm.from_inventory}
+                      onChange={e => setSuppForm(prev => ({
+                        ...prev,
+                        from_inventory: e.target.checked,
+                        inventory_id: '',
+                        item_name: e.target.checked ? prev.item_name : '',
+                      }))}
+                      className="w-4 h-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900"
+                    />
+                    <label htmlFor="from_inventory" className="text-xs font-semibold text-zinc-600 cursor-pointer">
+                      Ambil dari Inventaris
+                    </label>
+                    <span className="text-[10px] text-zinc-400">(otomatis kurangi stok)</span>
+                  </div>
+
+                  {/* Inventory dropdown (conditional) */}
+                  {suppForm.from_inventory && (
+                    <div>
+                      <label className="block text-xs font-semibold text-zinc-700 mb-1.5 uppercase tracking-wide">
+                        Item Inventaris
+                      </label>
+                      <select
+                        value={suppForm.inventory_id}
+                        onChange={e => setSuppForm(prev => ({ ...prev, inventory_id: e.target.value }))}
+                        className="w-full px-3 py-2 border border-zinc-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-zinc-900"
+                        required={suppForm.from_inventory}
+                      >
+                        <option value="">— Pilih item —</option>
+                        {inventoryItems.map(i => (
+                          <option key={i.id} value={i.id}>
+                            {i.item_name} (stok: {Number(i.quantity).toLocaleString('id-ID')} {i.unit})
+                          </option>
+                        ))}
+                      </select>
+                      {selectedInvItem && Number(selectedInvItem.quantity) <= 0 && (
+                        <p className="text-[10px] text-rose-600 mt-1 font-medium">
+                          Stok habis. Tambahkan stok di menu Inventaris.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Item name (manual if not from inventory) */}
+                  {!suppForm.from_inventory && (
+                    <div>
+                      <label className="block text-xs font-semibold text-zinc-700 mb-1.5 uppercase tracking-wide">
+                        Nama Item
+                      </label>
+                      <input
+                        type="text"
+                        value={suppForm.item_name}
+                        onChange={e => setSuppForm(prev => ({ ...prev, item_name: e.target.value }))}
+                        placeholder="Cth: EM4, Newcastle, Vit AD3E..."
+                        className="w-full px-3 py-2 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900"
+                        required
+                      />
+                    </div>
+                  )}
+
+                  {/* Quantity + Unit */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-zinc-700 mb-1.5 uppercase tracking-wide">
+                        Kuantitas
+                      </label>
+                      <input
+                        type="number" min="0" step="0.01" value={suppForm.quantity}
+                        onChange={e => setSuppForm(prev => ({ ...prev, quantity: e.target.value }))}
+                        placeholder="0"
+                        className="w-full px-3 py-2 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-zinc-700 mb-1.5 uppercase tracking-wide">
+                        Satuan
+                      </label>
+                      <select
+                        value={suppForm.unit}
+                        onChange={e => setSuppForm(prev => ({ ...prev, unit: e.target.value }))}
+                        className="w-full px-3 py-2 border border-zinc-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-zinc-900"
+                      >
+                        <option value="ml">ml</option>
+                        <option value="L">L</option>
+                        <option value="gr">gr</option>
+                        <option value="Kg">Kg</option>
+                        <option value="butir">butir</option>
+                        <option value="sachet">sachet</option>
+                        <option value="ampul">ampul</option>
+                        <option value="bungkus">bungkus</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Notes */}
+                  <div>
+                    <label className="block text-xs font-semibold text-zinc-700 mb-1.5 uppercase tracking-wide">
+                      Keterangan <span className="font-normal text-zinc-400 normal-case">(opsional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={suppForm.notes}
+                      onChange={e => setSuppForm(prev => ({ ...prev, notes: e.target.value }))}
+                      placeholder="Cth: dosis preventif, via air minum..."
+                      className="w-full px-3 py-2 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900"
+                    />
+                  </div>
+
+                  <div className="pt-1">
+                    <button
+                      type="submit"
+                      disabled={suppSubmitting || flocks.length === 0}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 transition-colors text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {suppSubmitting ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <FlaskConical className="w-4 h-4" />
+                      )}
+                      {suppSubmitting ? 'Menyimpan...' : 'Catat Suplemen / Obat'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+
             </div>
 
-            {/* ── Right: Recent Records ──────────────────────────────── */}
+            {/* ── Right: Recent Records ──────────────────────────────────── */}
             <div className="lg:col-span-3 bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden">
               <div className="px-5 py-4 border-b border-zinc-200 flex items-center justify-between">
                 <h2 className="text-sm font-bold text-zinc-900 uppercase tracking-wide">

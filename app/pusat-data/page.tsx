@@ -9,8 +9,9 @@ import InventoryTab from '@/components/master-data/InventoryTab';
 import FinanceTab from '@/components/master-data/FinanceTab';
 import ProductionTab from '@/components/master-data/ProductionTab';
 import AssetTab from '@/components/master-data/AssetTab';
+import SupplementTab from '@/components/master-data/SupplementTab';
 
-type TabType = 'keuangan' | 'produksi' | 'inventaris' | 'aset';
+type TabType = 'keuangan' | 'produksi' | 'inventaris' | 'aset' | 'suplemen';
 
 export default function PusatDataPage() {
   const [activeTab, setActiveTab] = useState<TabType>('keuangan');
@@ -61,6 +62,13 @@ export default function PusatDataPage() {
             >
               Manajemen Aset
             </button>
+            <button
+              onClick={() => setActiveTab('suplemen')}
+              className={`flex-none px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${activeTab === 'suplemen' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-zinc-400 hover:text-zinc-700'
+                }`}
+            >
+              Suplemen &amp; Obat
+            </button>
           </div>
 
           {/* Render Tab Contents */}
@@ -72,6 +80,8 @@ export default function PusatDataPage() {
             {activeTab === 'produksi' && <ProductionTab />}
 
             {activeTab === 'aset' && <AssetTab />}
+
+            {activeTab === 'suplemen' && <SupplementTab />}
           </div>
 
         </div>
