@@ -129,6 +129,16 @@ function TrendTooltip({ active, payload, label }: { active?: boolean; payload?: 
   );
 }
 
+// ─── Accounting number helpers ────────────────────────────────────────────────
+
+/** Formats a positive number as (Rp x) for negative accounting entries */
+const fmtDebit = (v: number) =>
+  v === 0 ? '—' : `(${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(v)})`;
+
+/** Formats a positive number as Rp x (credit / normal) */
+const fmtCredit = (v: number) =>
+  v === 0 ? '—' : new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(v);
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function LaporanPage() {
@@ -138,6 +148,13 @@ export default function LaporanPage() {
   const [data,  setData]  = useState<PLData | null>(null);
   const [trend, setTrend] = useState<TrendPoint[]>([]);
   const [loading, setLoading] = useState(true);
+  const [farmName, setFarmName] = useState<string>('');
+
+  // Fetch farm name once (for PDF header)
+  useEffect(() => {
+    supabase.from('farm_profile').select('farm_name').maybeSingle()
+      .then(({ data: fp }) => { if (fp?.farm_name) setFarmName(fp.farm_name); });
+  }, []);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -320,6 +337,14 @@ export default function LaporanPage() {
   // ── Export PDF ──────────────────────────────────────────────────────────────
   const exportPDF = () => { window.print(); };
 
+  // ── PDF-only derived values ──────────────────────────────────────────────────
+  const hpp         = (data?.variableCost ?? 0) + (data?.depreciationBio ?? 0);
+  const labaKotor   = (data?.totalRevenue ?? 0) - hpp;
+  const totalOpex   = (data?.depreciationPhysical ?? 0) + (data?.fixedCashCost ?? 0);
+  const nonCashCost = (data?.depreciationPhysical ?? 0) + (data?.depreciationBio ?? 0);
+  const printedAt   = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+                    + ', ' + new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+
   // ── Derived ─────────────────────────────────────────────────────────────────
   const profit       = data?.netProfit ?? 0;
   const profitMargin = (data?.totalRevenue ?? 0) > 0 ? ((profit / data!.totalRevenue) * 100).toFixed(1) : '—';
@@ -337,16 +362,156 @@ export default function LaporanPage() {
 
   return (
     <AppShell>
-      {/* Print CSS — hides nav and buttons, keeps content */}
+      {/* Print CSS — hides entire app shell & page, shows only #pdf-print */}
       <style>{`
         @media print {
           header, nav, aside, [data-no-print] { display: none !important; }
-          body { background: white !important; }
-          .print-page { padding: 16px !important; }
+          body { background: white !important; margin: 0 !important; }
+          #pdf-print { display: block !important; }
+          @page { size: A4 portrait; margin: 1.2cm 1.5cm; }
         }
       `}</style>
 
-      <div className="min-h-screen bg-zinc-50 p-4 sm:p-6 pb-20 print-page">
+      {/* ── Print-only PDF Document ────────────────────────────────────────── */}
+      <div id="pdf-print" style={{ display: 'none' }}>
+        {data && (() => {
+          const isProfit = data.netProfit >= 0;
+          const ROW_STYLE: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '5px 0' };
+          const INDENT_STYLE: React.CSSProperties = { ...ROW_STYLE, paddingLeft: '16px' };
+          const SECTION_HDR: React.CSSProperties = { fontSize: '10px', fontWeight: 700, letterSpacing: '1.2px', textTransform: 'uppercase' as const, color: '#18181b', borderBottom: '1.5px solid #18181b', paddingBottom: '4px', marginTop: '20px', marginBottom: '2px' };
+          const LABEL: React.CSSProperties = { fontSize: '12px', color: '#3f3f46' };
+          const SUB_LABEL: React.CSSProperties = { fontSize: '10px', color: '#a1a1aa', marginLeft: '6px' };
+          const AMT_CREDIT: React.CSSProperties = { fontSize: '12px', color: '#18181b', fontVariantNumeric: 'tabular-nums', minWidth: '140px', textAlign: 'right' as const };
+          const AMT_DEBIT: React.CSSProperties = { ...AMT_CREDIT, color: '#dc2626' };
+          const TOTAL_LABEL: React.CSSProperties = { fontSize: '12px', fontWeight: 700, color: '#18181b', borderTop: '1px solid #d4d4d8', paddingTop: '6px', marginTop: '2px' };
+          const TOTAL_AMT_G: React.CSSProperties = { ...AMT_CREDIT, fontWeight: 700, borderTop: '1px solid #d4d4d8', paddingTop: '6px', marginTop: '2px', color: '#059669' };
+          const TOTAL_AMT_R: React.CSSProperties = { ...AMT_CREDIT, fontWeight: 700, borderTop: '1px solid #d4d4d8', paddingTop: '6px', marginTop: '2px', color: '#dc2626' };
+
+          return (
+            <div style={{ fontFamily: "'Arial', 'Helvetica', sans-serif", color: '#18181b', maxWidth: '680px', margin: '0 auto' }}>
+
+              {/* ── Header bar ──────────────────────────────────────── */}
+              <div style={{ background: '#18181b', color: 'white', padding: '18px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <div style={{ fontSize: '18px', fontWeight: 800, letterSpacing: '-0.5px' }}>PoultryOS</div>
+                  <div style={{ fontSize: '9px', color: '#71717a', marginTop: '2px', letterSpacing: '1.5px', textTransform: 'uppercase' }}>Farm Intelligence Platform</div>
+                  {farmName && (
+                    <div style={{ fontSize: '12px', color: '#d4d4d8', marginTop: '8px', fontWeight: 600 }}>{farmName}</div>
+                  )}
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '15px', fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' }}>Laporan Laba Rugi</div>
+                  <div style={{ fontSize: '11px', color: '#a1a1aa', marginTop: '4px' }}>Periode: {MONTH_NAMES[month - 1]} {year}</div>
+                  <div style={{ fontSize: '10px', color: '#71717a', marginTop: '2px' }}>Metode: Full Costing</div>
+                  <div style={{ fontSize: '10px', color: '#71717a', marginTop: '2px' }}>Dicetak: {printedAt}</div>
+                </div>
+              </div>
+
+              {/* ── P&L Body ────────────────────────────────────────── */}
+              <div style={{ padding: '4px 0 0' }}>
+
+                {/* PENDAPATAN */}
+                <div style={SECTION_HDR}>Pendapatan Usaha</div>
+                <div style={INDENT_STYLE}>
+                  <span style={LABEL}>Penjualan Telur</span>
+                  <span style={AMT_CREDIT}>{fmtCredit(data.revenueEgg)}</span>
+                </div>
+                {data.revenueOther > 0 && (
+                  <div style={INDENT_STYLE}>
+                    <span style={LABEL}>Pendapatan Lainnya</span>
+                    <span style={AMT_CREDIT}>{fmtCredit(data.revenueOther)}</span>
+                  </div>
+                )}
+                <div style={{ ...ROW_STYLE, borderTop: '1px solid #d4d4d8', paddingTop: '6px', marginTop: '2px' }}>
+                  <span style={TOTAL_LABEL}>Total Pendapatan</span>
+                  <span style={TOTAL_AMT_G}>{fmtCredit(data.totalRevenue)}</span>
+                </div>
+
+                {/* HPP */}
+                <div style={SECTION_HDR}>Harga Pokok Produksi (HPP)</div>
+                <div style={INDENT_STYLE}>
+                  <span style={LABEL}>Biaya Pakan <span style={SUB_LABEL}>(Variabel / HPP Langsung)</span></span>
+                  <span style={AMT_DEBIT}>{fmtDebit(data.variableCost)}</span>
+                </div>
+                <div style={INDENT_STYLE}>
+                  <span style={LABEL}>Penyusutan Biologis Ayam <span style={SUB_LABEL}>(Batch aktif)</span></span>
+                  <span style={AMT_DEBIT}>{fmtDebit(data.depreciationBio)}</span>
+                </div>
+                <div style={{ ...ROW_STYLE, borderTop: '1px solid #d4d4d8', paddingTop: '6px', marginTop: '2px' }}>
+                  <span style={TOTAL_LABEL}>Total Harga Pokok Produksi</span>
+                  <span style={TOTAL_AMT_R}>{fmtDebit(hpp)}</span>
+                </div>
+
+                {/* LABA KOTOR — intermediate line */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', borderTop: '2px solid #18181b', borderBottom: '1px solid #d4d4d8', padding: '8px 0', marginTop: '4px' }}>
+                  <span style={{ fontSize: '13px', fontWeight: 800, color: '#18181b' }}>Laba Kotor</span>
+                  <span style={{ fontSize: '13px', fontWeight: 800, color: labaKotor >= 0 ? '#059669' : '#dc2626', fontVariantNumeric: 'tabular-nums', minWidth: '140px', textAlign: 'right' }}>
+                    {labaKotor < 0 ? fmtDebit(Math.abs(labaKotor)) : fmtCredit(labaKotor)}
+                  </span>
+                </div>
+
+                {/* BIAYA OPERASIONAL */}
+                <div style={SECTION_HDR}>Biaya Operasional &amp; Overhead</div>
+                <div style={INDENT_STYLE}>
+                  <span style={LABEL}>Penyusutan Aset Fisik <span style={SUB_LABEL}>(Kandang, mesin, peralatan)</span></span>
+                  <span style={AMT_DEBIT}>{fmtDebit(data.depreciationPhysical)}</span>
+                </div>
+                {data.fixedCashCost > 0 && (
+                  <div style={INDENT_STYLE}>
+                    <span style={LABEL}>Biaya Operasional Tetap <span style={SUB_LABEL}>(Listrik, gaji, transport, dll.)</span></span>
+                    <span style={AMT_DEBIT}>{fmtDebit(data.fixedCashCost)}</span>
+                  </div>
+                )}
+                <div style={{ ...ROW_STYLE, borderTop: '1px solid #d4d4d8', paddingTop: '6px', marginTop: '2px' }}>
+                  <span style={TOTAL_LABEL}>Total Biaya Operasional</span>
+                  <span style={TOTAL_AMT_R}>{fmtDebit(totalOpex)}</span>
+                </div>
+
+                {/* LABA BERSIH */}
+                <div style={{ marginTop: '12px', background: isProfit ? '#f0fdf4' : '#fff1f2', border: `1.5px solid ${isProfit ? '#bbf7d0' : '#fecdd3'}`, borderRadius: '6px', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '14px', fontWeight: 800, letterSpacing: '0.5px', textTransform: 'uppercase' as const, color: isProfit ? '#065f46' : '#9f1239' }}>
+                    {isProfit ? 'Laba Bersih' : 'Rugi Bersih'}
+                  </span>
+                  <span style={{ fontSize: '16px', fontWeight: 800, color: isProfit ? '#059669' : '#dc2626', fontVariantNumeric: 'tabular-nums' }}>
+                    {data.netProfit < 0 ? fmtDebit(Math.abs(data.netProfit)) : fmtCredit(data.netProfit)}
+                  </span>
+                </div>
+
+                {/* Non-P&L note */}
+                {data.inventoryPurchase > 0 && (
+                  <div style={{ marginTop: '8px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '4px', padding: '8px 12px', fontSize: '10px', color: '#92400e' }}>
+                    <strong>Catatan Arus Kas:</strong> Pembelian inventaris pakan periode ini sebesar {fmtCredit(data.inventoryPurchase)} dicatat sebagai aset (bukan beban P&amp;L). Biaya pakan diakui ke HPP saat dikonsumsi.
+                  </div>
+                )}
+
+                {/* METRICS BAR */}
+                <div style={{ marginTop: '20px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1px', background: '#e4e4e7', border: '1px solid #e4e4e7', borderRadius: '6px', overflow: 'hidden' }}>
+                  {[
+                    { label: 'Profit Margin', value: `${profitMargin}%`, sub: 'Laba / Pendapatan' },
+                    { label: 'Biaya Non-Kas', value: fmtCredit(nonCashCost), sub: 'Penyusutan bulan ini' },
+                    { label: 'Total Pendapatan', value: fmtCredit(data.totalRevenue), sub: `${MONTH_NAMES[month - 1]} ${year}` },
+                  ].map(kpi => (
+                    <div key={kpi.label} style={{ background: 'white', padding: '10px 14px' }}>
+                      <div style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.8px', color: '#a1a1aa', marginBottom: '4px' }}>{kpi.label}</div>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#18181b' }}>{kpi.value}</div>
+                      <div style={{ fontSize: '9px', color: '#a1a1aa', marginTop: '2px' }}>{kpi.sub}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* FOOTNOTE */}
+                <div style={{ marginTop: '20px', borderTop: '1px solid #e4e4e7', paddingTop: '10px', fontSize: '9px', color: '#a1a1aa', lineHeight: '1.6' }}>
+                  <p>Laporan ini menggunakan <strong style={{ color: '#71717a' }}>Full Costing Method</strong> — seluruh biaya tetap (termasuk penyusutan non-kas) dibebankan ke periode berjalan. Biaya pakan diakui ke HPP saat dikonsumsi, bukan saat dibeli (Perpetual Inventory). Angka penyusutan aset dihitung berdasarkan biaya perolehan dibagi masa manfaat. Laporan ini bersifat internal dan tidak merupakan laporan keuangan audited.</p>
+                  <p style={{ marginTop: '6px', color: '#d4d4d8' }}>Dibuat secara otomatis oleh <strong style={{ color: '#a1a1aa' }}>PoultryOS — Farm Intelligence Platform</strong> · {printedAt}</p>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+      </div>
+
+      {/* ── Main page content (hidden in print) ──────────────────────────── */}
+      <div data-no-print className="min-h-screen bg-zinc-50 p-4 sm:p-6 pb-20 print-page">
         <div className="max-w-4xl mx-auto space-y-6">
 
           {/* ── Header ────────────────────────────────────────────────────── */}
@@ -608,7 +773,7 @@ export default function LaporanPage() {
             </>
           )}
         </div>
-      </div>
+      </div>{/* end data-no-print main content */}
     </AppShell>
   );
 }
