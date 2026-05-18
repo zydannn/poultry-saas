@@ -7,6 +7,7 @@ import {
   ClipboardList, Egg, Wheat, Skull, AlertTriangle,
   CheckCircle2, Loader2, Bird,
 } from 'lucide-react';
+import { submitDailyRecord } from '@/app/flocks/actions';
 
 interface Flock {
   id: string;
@@ -114,29 +115,19 @@ export default function DailyInputPage() {
 
     setSubmitting(true);
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      const { error: insertError } = await supabase.from('daily_records').insert({
-        flock_id: form.flock_id,
-        date: form.date,
-        shift: form.shift,
-        good_eggs: goodEggs,
-        broken_eggs: brokenEggs,
+      const result = await submitDailyRecord({
+        flock_id:         form.flock_id,
+        date:             form.date,
+        shift:            form.shift as 'Pagi' | 'Sore',
+        good_eggs:        goodEggs,
+        broken_eggs:      brokenEggs,
         feed_consumed_kg: parseFloat(form.feed_consumed_kg) || 0,
         mortality,
-        user_id: user?.id,
       });
 
-      if (insertError) throw insertError;
-
-      // Deduct mortality from flock population
-      if (mortality > 0 && selectedFlock) {
-        await supabase
-          .from('flocks')
-          .update({ current_population: selectedFlock.current_population - mortality })
-          .eq('id', form.flock_id);
+      if (!result.success) {
+        setError(result.error);
+        return;
       }
 
       setSuccess(true);

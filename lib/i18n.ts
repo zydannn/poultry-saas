@@ -1,87 +1,6 @@
-export type Locale = 'en' | 'id';
+export type Locale = 'id';
 
 export const translations = {
-    en: {
-        // App
-        appName: 'PoultryOS',
-        appTagline: 'Farm Intelligence Platform',
-        mockBadge: 'Demo · Mock Data',
-
-        // Nav / Header
-        logout: 'Logout',
-        logoutConfirm: 'Logging out…',
-        navOpen: 'Open navigation',
-
-        // Sidebar
-        navDashboard: 'Dashboard',
-        navDailyInput: 'Daily Input',
-        navFlocks: 'Flock Management',
-        navInventory: 'Inventory & Stock',
-        navFinance: 'Finance',
-        navReports: 'Reports',
-        navDataCenter: 'Master Data',
-        navSettings: 'Settings',
-
-        // Dashboard
-        dashboardTitle: 'Farm Dashboard',
-        dashboardPeriod: 'Financial overview · Period: February 2026',
-        bigThreeLabel: 'Key Performance Metrics',
-        dailyRecordingLabel: 'Daily Recording',
-        priceComparisonLabel: 'Price Comparison',
-        footer: 'PoultryOS · Alpha · Mock data for UI demonstration',
-
-        // Summary Bar
-        totalEggs: 'Total Eggs',
-        fixedCost: 'Fixed Cost',
-        variableCost: 'Variable Cost',
-
-        // KPI Cards
-        hppLabel: 'HPP / Egg',
-        hppSub: 'Cost of Goods Sold per egg',
-        recommendedPriceLabel: 'Recommended Price',
-        recommendedPriceSub: 'Recommended selling price',
-        bepProfitBadge: 'Profit',
-        bepLossBadge: 'Loss',
-        profitPerEgg: 'profit per egg vs. market',
-        lossPerEgg: 'loss per egg vs. market',
-        bepNeeded: 'eggs needed',
-        eggsProduced: 'eggs produced',
-
-        // Price Comparison
-        marketPrice: 'Market Price',
-        hppCostPerEgg: 'HPP (Cost/Egg)',
-        recommendedPriceShort: 'Recommended Price',
-
-        // Login Page
-        signIn: 'Sign In',
-        signUp: 'Create Account',
-        email: 'Email',
-        password: 'Password',
-        emailPlaceholder: 'you@example.com',
-        passwordPlaceholder: 'Min. 6 characters',
-        signingIn: 'Signing in…',
-        signingUp: 'Creating account…',
-        noAccount: "Don't have an account?",
-        hasAccount: 'Already have an account?',
-        authError: 'An error occurred. Please try again.',
-        authErrorInvalidCredentials: 'Incorrect email or password. Please try again.',
-        authErrorEmailNotConfirmed: 'Your email has not been confirmed yet. Please check your inbox (or spam folder) and click the confirmation link.',
-        authErrorResendConfirmation: 'Resend confirmation email',
-        authErrorResendSuccess: 'Confirmation email resent! Please check your inbox.',
-        checkEmail: 'Account created! Check your email and click the confirmation link to activate your account.',
-
-        // Daily Input Form
-        dailyInputTitle: 'Daily Input',
-        dailyInputSub: "Record today's farm activity",
-        goodEggs: 'Good Eggs',
-        damagedEggs: 'Damaged Eggs',
-        mortality: 'Mortality',
-        feedUsed: 'Feed Used',
-        totalEggsLabel: 'Total eggs',
-        saveData: 'Save Data',
-        saved: 'Saved!',
-    },
-
     id: {
         // App
         appName: 'PoultryOS',
@@ -164,4 +83,4 @@ export const translations = {
     },
 } as const;
 
-export type TranslationKey = keyof typeof translations.en;
+export type TranslationKey = keyof typeof translations.id;

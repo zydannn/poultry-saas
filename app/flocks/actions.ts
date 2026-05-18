@@ -97,7 +97,32 @@ export async function submitDailyRecord(payload: DailyRecordPayload): Promise<Fl
   });
 
   if (error) {
+    // Unique constraint: data for this flock + date + shift already exists
+    if (error.code === '23505') {
+      return {
+        success: false,
+        error: 'Data untuk tanggal dan shift ini sudah tercatat. Gunakan shift yang berbeda atau ubah tanggalnya.',
+        code: 'DB_ERROR',
+      };
+    }
     return { success: false, error: `Gagal menyimpan data harian: ${error.message}`, code: 'DB_ERROR' };
+  }
+
+  // ── Deduct mortality from flock population (server-side, atomic with this action) ──
+  if (payload.mortality > 0) {
+    const { data: flock } = await supabase
+      .from('flocks')
+      .select('current_population')
+      .eq('id', payload.flock_id)
+      .single();
+
+    if (flock) {
+      const newPop = Math.max(0, Number(flock.current_population) - payload.mortality);
+      await supabase
+        .from('flocks')
+        .update({ current_population: newPop })
+        .eq('id', payload.flock_id);
+    }
   }
 
   revalidatePath('/daily-records');

@@ -44,7 +44,13 @@ export async function submitEggSale(payload: SalePayload): Promise<ActionResult>
 
   const supabase = await createClient();
 
-  // ── 2. Hitung stok telur langsung dari sumber data ────────────────────────
+  // ── 2. Pastikan user terautentikasi sebelum query apapun ──────────────────
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { success: false, error: 'Sesi tidak valid. Silakan login ulang.', code: 'DB_ERROR' };
+  }
+
+  // ── 3. Hitung stok telur langsung dari sumber data ────────────────────────
   // Stok = total panen (good_eggs) - total pecah (broken_eggs) - total terjual
   const [
     { data: dailyRows, error: dailyError },
@@ -69,7 +75,7 @@ export async function submitEggSale(payload: SalePayload): Promise<ActionResult>
   const totalSold  = (salesRows ?? []).reduce((s, r) => s + (Number(r.quantity)    || 0), 0);
   const currentStock = Math.max(0, totalPanen - totalPecah - totalSold);
 
-  // ── 3. Business rule: reject if sellQty > currentStock ────────────────────
+  // ── 4. Business rule: reject if sellQty > currentStock ────────────────────
   if (payload.quantity > currentStock) {
     return {
       success: false,
@@ -78,11 +84,7 @@ export async function submitEggSale(payload: SalePayload): Promise<ActionResult>
     };
   }
 
-  // ── 4. Safe INSERT — total_revenue excluded (GENERATED ALWAYS AS) ──────────
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return { success: false, error: 'Sesi tidak valid. Silakan login ulang.', code: 'DB_ERROR' };
-  }
+  // ── 5. Safe INSERT — total_revenue excluded (GENERATED ALWAYS AS) ──────────
 
   const { error: insertError } = await supabase.from('finance_income').insert({
     date: payload.date,

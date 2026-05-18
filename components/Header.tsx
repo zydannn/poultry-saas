@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { Globe, LogOut, Menu, User, ChevronDown } from 'lucide-react';
+import { LogOut, Menu, User, ChevronDown } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
 import { supabase } from '@/utils/supabase/client';
 import { type TranslationKey } from '@/lib/i18n';
@@ -41,7 +41,7 @@ interface HeaderProps {
 }
 
 export default function Header({ userEmail, onMenuClick }: HeaderProps) {
-    const { locale, setLocale, t } = useLanguage();
+    const { t } = useLanguage();
     const router    = useRouter();
     const pathname  = usePathname();
 
@@ -107,24 +107,6 @@ export default function Header({ userEmail, onMenuClick }: HeaderProps) {
 
                 {/* ── Right controls ── */}
                 <div className="flex items-center gap-3">
-
-                    {/* Language Toggle */}
-                    <div className="flex items-center gap-0.5 rounded-lg border border-gray-200 bg-gray-50 p-1">
-                        <Globe className="ml-1 h-3 w-3 text-slate-400" />
-                        {(['en', 'id'] as const).map((loc) => (
-                            <button
-                                key={loc}
-                                onClick={() => setLocale(loc)}
-                                className={`rounded-md px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide transition-all ${
-                                    locale === loc
-                                        ? 'bg-zinc-900 text-white shadow-sm'
-                                        : 'text-slate-500 hover:text-slate-700'
-                                }`}
-                            >
-                                {loc}
-                            </button>
-                        ))}
-                    </div>
 
                     {/* User profile dropdown */}
                     {userEmail && (

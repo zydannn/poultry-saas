@@ -14,6 +14,7 @@ import {
   CalendarDays,
   Users,
   Building2,
+  AlertTriangle,
 } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -60,6 +61,7 @@ export default function FlocksPage() {
   const [showForm, setShowForm] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     name:                      '',
@@ -134,8 +136,13 @@ export default function FlocksPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('Hapus batch ini? Data input harian yang terhubung akan ikut terhapus.')) return;
     setIsDeleting(id);
-    await supabase.from('flocks').delete().eq('id', id);
+    setDeleteError(null);
+    const { error } = await supabase.from('flocks').delete().eq('id', id);
     setIsDeleting(null);
+    if (error) {
+      setDeleteError(`Gagal menghapus batch: ${error.message}`);
+      return;
+    }
     fetchData();
   };
 
@@ -284,6 +291,15 @@ export default function FlocksPage() {
                   </button>
                 </div>
               </form>
+            </div>
+          )}
+
+          {/* ── Delete Error Banner ──────────────────────────────────────────── */}
+          {deleteError && (
+            <div className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
+              <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+              <p className="text-sm text-rose-800 font-medium flex-1">{deleteError}</p>
+              <button onClick={() => setDeleteError(null)} className="text-rose-400 hover:text-rose-600 text-xs shrink-0">✕</button>
             </div>
           )}
 

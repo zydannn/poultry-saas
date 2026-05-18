@@ -62,10 +62,6 @@ export const GLOSSARY: Record<string, { short: string; detail?: string }> = {
     short: 'Harga telur yang berlaku di pasar lokal saat ini.',
     detail: 'Diisi manual di Pengaturan. Dipakai sebagai pembanding: jika HPP Anda lebih tinggi dari harga pasar, Anda sedang merugi.',
   },
-  'HDP': {
-    short: 'Hen Day Production — % telur yang diproduksi per ekor per hari.',
-    detail: 'HDP = (Telur Dipanen ÷ Populasi Aktif) × 100%. Standar sehat layer > 70%. Turun tajam = tanda stres atau penyakit.',
-  },
   'Stok Telur': {
     short: 'Jumlah telur yang sudah dipanen tapi belum terjual.',
     detail: 'Dihitung: Total Panen − Telur Pecah − Total Terjual. Klik kartu ini untuk melihat riwayat mutasi harian.',
@@ -85,41 +81,63 @@ export default function TermTooltip({ term, children, className = '' }: TermTool
   const ref = useRef<HTMLSpanElement>(null);
   const entry = GLOSSARY[term];
 
+  // Close when clicking/touching outside the whole component
   useEffect(() => {
     if (!open) return;
-    const handle = (e: MouseEvent) => {
+    const handle = (e: MouseEvent | TouchEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
     document.addEventListener('mousedown', handle);
-    return () => document.removeEventListener('mousedown', handle);
+    document.addEventListener('touchstart', handle, { passive: true });
+    return () => {
+      document.removeEventListener('mousedown', handle);
+      document.removeEventListener('touchstart', handle);
+    };
   }, [open]);
 
   if (!entry) return <>{children ?? term}</>;
 
   return (
-    <span ref={ref} className={`relative inline-flex items-baseline gap-0.5 ${className}`}>
+    /**
+     * Hover is placed on the OUTER span so moving the mouse from the
+     * trigger text up into the tooltip (which is positioned inside this
+     * same DOM ancestor) does NOT trigger onMouseLeave — the tooltip
+     * stays open while the user reads it.
+     */
+    <span
+      ref={ref}
+      className={`relative inline-flex items-baseline gap-0.5 ${className}`}
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      {/* Underlined term text — tap/click toggles on mobile */}
       <span
         className="underline decoration-dotted decoration-zinc-400 underline-offset-2 cursor-help"
-        onMouseEnter={() => setOpen(true)}
-        onMouseLeave={() => setOpen(false)}
         onClick={() => setOpen(v => !v)}
       >
         {children ?? term}
       </span>
+
+      {/* Help icon — same tap toggle */}
       <HelpCircle
         className="w-3 h-3 text-zinc-400 cursor-help shrink-0 self-center"
-        onMouseEnter={() => setOpen(true)}
-        onMouseLeave={() => setOpen(false)}
         onClick={() => setOpen(v => !v)}
       />
 
+      {/* Tooltip bubble
+          - Centered horizontally above the trigger (left-1/2 -translate-x-1/2)
+          - max-w-[calc(100vw-2rem)] prevents overflow on narrow mobile screens
+          - pointer-events-auto (NOT none) so the user can scroll/select text
+            on mobile and so onMouseLeave on the outer span fires correctly
+      */}
       {open && (
         <span
           role="tooltip"
           className="
-            absolute bottom-full left-0 z-50 mb-2
-            w-64 rounded-xl border border-zinc-200 bg-white shadow-xl
-            px-4 py-3 text-left pointer-events-none
+            absolute bottom-full left-1/2 -translate-x-1/2 z-50 mb-2
+            w-64 max-w-[calc(100vw-2rem)]
+            rounded-xl border border-zinc-200 bg-white shadow-xl
+            px-4 py-3 text-left pointer-events-auto
           "
         >
           <span className="block text-[11px] font-bold uppercase tracking-widest text-zinc-400 mb-1">

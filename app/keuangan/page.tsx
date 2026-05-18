@@ -74,11 +74,11 @@ export default function FinancePage() {
   const [incomes, setIncomes] = useState<FinanceIncome[]>([]);
   const [expenses, setExpenses] = useState<FinanceExpense[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
-  
+
   // DB-aggregated totals (server-side SUM, not client-side reduce)
   const [aggTotalIncome, setAggTotalIncome] = useState(0);
   const [aggTotalExpense, setAggTotalExpense] = useState(0);
-  
+
   const [isFetching, setIsFetching] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [incomeError, setIncomeError] = useState<string | null>(null);
@@ -148,9 +148,9 @@ export default function FinancePage() {
 
   // Core totals — derived from DB-aggregated queries, NOT client-side reduce.
   // Falls back to 0 if DB is empty.
-  const totalIncome  = aggTotalIncome;
+  const totalIncome = aggTotalIncome;
   const totalExpense = aggTotalExpense;
-  const netBalance   = totalIncome - totalExpense;
+  const netBalance = totalIncome - totalExpense;
 
   // Inventory purchase subtotal (computed client-side from already-fetched expenses)
   const inventoryPurchaseTotal = useMemo(
@@ -194,7 +194,7 @@ export default function FinancePage() {
         rawDate: new Date(e.date + 'T00:00:00').getTime()
       });
     });
-    
+
     // Sort by date descending
     return history.sort((a, b) => b.rawDate - a.rawDate);
   }, [incomes, expenses]);
@@ -202,7 +202,7 @@ export default function FinancePage() {
   const predictedCostGroup = useMemo(() => {
     const desc = expenseForm.description.toLowerCase();
     if (!desc) return null;
-    
+
     if (/(pakan|obat|vitamin|vaksin|sekam|ovk|konsentrat|jagung|dedak)/i.test(desc)) {
       return 'Variable';
     }
@@ -322,10 +322,10 @@ export default function FinancePage() {
     <AppShell>
       <div className="min-h-screen bg-zinc-50 p-4 sm:p-6">
         <div className="max-w-6xl mx-auto space-y-6">
-          
+
           {/* Header */}
           <div>
-            <h1 className="text-2xl font-bold text-zinc-900">Keuangan ERP</h1>
+            <h1 className="text-2xl font-bold text-zinc-900">Keuangan</h1>
             <p className="text-zinc-500 mt-1">Kelola arus kas, pemasukan, dan pengeluaran operasional.</p>
           </div>
 
@@ -371,7 +371,7 @@ export default function FinancePage() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
-            
+
             {/* Left Column: Forms */}
             <div className="space-y-6">
               <div className="bg-white border border-zinc-200 rounded-xl p-5 sm:p-6 shadow-sm">
@@ -379,22 +379,20 @@ export default function FinancePage() {
                   <button
                     type="button"
                     onClick={() => setActiveTab('pemasukan')}
-                    className={`flex-1 py-2.5 sm:py-2 text-sm font-medium rounded-md transition-all flex items-center justify-center gap-2 ${
-                      activeTab === 'pemasukan' 
-                        ? 'bg-white text-emerald-700 shadow-sm' 
+                    className={`flex-1 py-2.5 sm:py-2 text-sm font-medium rounded-md transition-all flex items-center justify-center gap-2 ${activeTab === 'pemasukan'
+                        ? 'bg-white text-emerald-700 shadow-sm'
                         : 'text-zinc-500 hover:text-zinc-700'
-                    }`}
+                      }`}
                   >
                     <ArrowUpRight className="w-4 h-4" /> Pemasukan
                   </button>
                   <button
                     type="button"
                     onClick={() => setActiveTab('pengeluaran')}
-                    className={`flex-1 py-2.5 sm:py-2 text-sm font-medium rounded-md transition-all flex items-center justify-center gap-2 ${
-                      activeTab === 'pengeluaran' 
-                        ? 'bg-white text-rose-700 shadow-sm' 
+                    className={`flex-1 py-2.5 sm:py-2 text-sm font-medium rounded-md transition-all flex items-center justify-center gap-2 ${activeTab === 'pengeluaran'
+                        ? 'bg-white text-rose-700 shadow-sm'
                         : 'text-zinc-500 hover:text-zinc-700'
-                    }`}
+                      }`}
                   >
                     <ArrowDownRight className="w-4 h-4" /> Pengeluaran
                   </button>
@@ -506,7 +504,7 @@ export default function FinancePage() {
                         />
                       </div>
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-zinc-700 mb-1.5">Nama Pembeli <span className="text-zinc-400 font-normal">(Opsional)</span></label>
                       <input
@@ -518,7 +516,7 @@ export default function FinancePage() {
                         className="w-full px-3 py-2 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       />
                     </div>
-                    
+
                     <div className="pt-4 border-t border-zinc-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div className="text-sm font-medium text-zinc-500">
                         Total Pemasukan: <span className="font-bold text-emerald-600 text-lg ml-1">
@@ -570,11 +568,10 @@ export default function FinancePage() {
                       <div className="flex items-center justify-between mb-1.5">
                         <label className="block text-sm font-medium text-zinc-700">Nama Beban / Deskripsi</label>
                         {predictedCostGroup && (
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${
-                            predictedCostGroup === 'Variable' ? 'bg-amber-50 text-amber-600 border-amber-200' : 
-                            predictedCostGroup === 'Fixed' ? 'bg-blue-50 text-blue-600 border-blue-200' : 
-                            'bg-zinc-100 text-zinc-500 border-zinc-200'
-                          }`}>
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${predictedCostGroup === 'Variable' ? 'bg-amber-50 text-amber-600 border-amber-200' :
+                              predictedCostGroup === 'Fixed' ? 'bg-blue-50 text-blue-600 border-blue-200' :
+                                'bg-zinc-100 text-zinc-500 border-zinc-200'
+                            }`}>
                             Class: {predictedCostGroup}
                           </span>
                         )}
@@ -602,7 +599,7 @@ export default function FinancePage() {
                         required
                       />
                     </div>
-                    
+
                     {expenseSuccess && (
                       <div className="flex items-center gap-2 rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2.5 text-sm text-emerald-700">
                         <CheckCircle2 className="w-4 h-4 shrink-0" />
@@ -663,24 +660,22 @@ export default function FinancePage() {
               ) : (
                 <div className="flex-1 overflow-y-auto pr-2 space-y-3 custom-scrollbar">
                   {combinedHistory.map((trx, idx) => (
-                    <div key={`${trx.id}-${idx}`} className={`flex items-center justify-between p-4 rounded-xl border transition-colors group ${
-                      trx.type === 'INVENTARIS'
+                    <div key={`${trx.id}-${idx}`} className={`flex items-center justify-between p-4 rounded-xl border transition-colors group ${trx.type === 'INVENTARIS'
                         ? 'border-amber-100 bg-amber-50/40 hover:bg-amber-50'
                         : trx.type === 'PAKAN'
-                        ? 'border-yellow-100 bg-yellow-50/40 hover:bg-yellow-50'
-                        : 'border-zinc-100 bg-zinc-50/50 hover:bg-zinc-50'
-                    }`}>
+                          ? 'border-yellow-100 bg-yellow-50/40 hover:bg-yellow-50'
+                          : 'border-zinc-100 bg-zinc-50/50 hover:bg-zinc-50'
+                      }`}>
                       <div className="flex items-center gap-3 sm:gap-4">
-                        <div className={`shrink-0 p-2 sm:p-2.5 rounded-xl ${
-                          trx.type === 'PEMASUKAN'  ? 'bg-emerald-100 text-emerald-600' :
-                          trx.type === 'INVENTARIS' ? 'bg-amber-100 text-amber-600' :
-                          trx.type === 'PAKAN'      ? 'bg-yellow-100 text-yellow-700' :
-                                                       'bg-rose-100 text-rose-600'
-                        }`}>
-                          {trx.type === 'PEMASUKAN'  ? <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" /> :
-                           trx.type === 'INVENTARIS' ? <Package className="w-4 h-4 sm:w-5 sm:h-5" /> :
-                           trx.type === 'PAKAN'      ? <Wheat className="w-4 h-4 sm:w-5 sm:h-5" /> :
-                                                        <Receipt className="w-4 h-4 sm:w-5 sm:h-5" />}
+                        <div className={`shrink-0 p-2 sm:p-2.5 rounded-xl ${trx.type === 'PEMASUKAN' ? 'bg-emerald-100 text-emerald-600' :
+                            trx.type === 'INVENTARIS' ? 'bg-amber-100 text-amber-600' :
+                              trx.type === 'PAKAN' ? 'bg-yellow-100 text-yellow-700' :
+                                'bg-rose-100 text-rose-600'
+                          }`}>
+                          {trx.type === 'PEMASUKAN' ? <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" /> :
+                            trx.type === 'INVENTARIS' ? <Package className="w-4 h-4 sm:w-5 sm:h-5" /> :
+                              trx.type === 'PAKAN' ? <Wheat className="w-4 h-4 sm:w-5 sm:h-5" /> :
+                                <Receipt className="w-4 h-4 sm:w-5 sm:h-5" />}
                         </div>
                         <div className="overflow-hidden">
                           <div className="flex items-center gap-2">
@@ -699,12 +694,11 @@ export default function FinancePage() {
                         </div>
                       </div>
                       <div className="text-right shrink-0 ml-2">
-                        <p className={`text-sm sm:text-base font-bold ${
-                          trx.type === 'PEMASUKAN'  ? 'text-emerald-600' :
-                          trx.type === 'INVENTARIS' ? 'text-amber-600' :
-                          trx.type === 'PAKAN'      ? 'text-yellow-700' :
-                                                       'text-rose-600'
-                        }`}>
+                        <p className={`text-sm sm:text-base font-bold ${trx.type === 'PEMASUKAN' ? 'text-emerald-600' :
+                            trx.type === 'INVENTARIS' ? 'text-amber-600' :
+                              trx.type === 'PAKAN' ? 'text-yellow-700' :
+                                'text-rose-600'
+                          }`}>
                           {trx.type === 'PEMASUKAN' ? '+' : '−'}{formatRupiah(trx.amount)}
                         </p>
                       </div>
@@ -713,7 +707,7 @@ export default function FinancePage() {
                 </div>
               )}
             </div>
-            
+
           </div>
         </div>
       </div>

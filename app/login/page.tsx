@@ -1,16 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Egg, Eye, EyeOff, Globe } from 'lucide-react';
+import { Egg, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/context/LanguageContext';
-import type { Locale } from '@/lib/i18n';
 import Link from 'next/link';
 import SplashScreen from '@/components/SplashScreen';
 
 export default function LoginPage() {
-    const { t, locale, setLocale } = useLanguage();
+    const { t } = useLanguage();
     const router = useRouter();
 
     const [tab, setTab] = useState<'signin' | 'signup'>('signin');
@@ -98,23 +97,6 @@ export default function LoginPage() {
                 className="flex min-h-screen flex-col items-center justify-center bg-muted/40 px-4 py-12 transition-opacity duration-500 ease-in-out"
                 style={{ opacity: showSplash ? 0 : 1 }}
             >
-                {/* Language toggle (top-right on mobile, positioned above card) */}
-                <div className="mb-6 flex items-center gap-1 rounded-full border border-border bg-background p-0.5 shadow-sm">
-                    <Globe className="ml-2 h-3.5 w-3.5 text-muted-foreground" />
-                    {(['en', 'id'] as Locale[]).map((loc) => (
-                        <button
-                            key={loc}
-                            onClick={() => setLocale(loc)}
-                            className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide transition-all ${locale === loc
-                                ? 'bg-primary text-primary-foreground shadow-sm'
-                                : 'text-muted-foreground hover:text-foreground'
-                                }`}
-                        >
-                            {loc}
-                        </button>
-                    ))}
-                </div>
-
                 {/* Card */}
                 <div className="w-full max-w-sm rounded-2xl border border-border bg-card shadow-lg">
                     {/* Header */}

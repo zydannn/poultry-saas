@@ -17,6 +17,13 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     async function fetchSettings() {
+      // Guard: skip query if no active session (e.g. on login / reset-password pages)
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setSettingsLoaded(true);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('farm_profile')
         .select('show_help_bubble')
