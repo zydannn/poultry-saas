@@ -23,6 +23,7 @@ export default function ProductionTab() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -52,7 +53,7 @@ export default function ProductionTab() {
   }, [fetchData]);
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Hapus log produksi harian ini? (Akan memperbarui inventaris secara otomatis)')) return;
+    setConfirmDeleteId(null);
     setIsDeleting(id);
     await supabase.from('daily_records').delete().eq('id', id);
     setIsDeleting(null);
@@ -123,12 +124,28 @@ export default function ProductionTab() {
                   <td className="px-4 py-3">{item.broken_eggs} <span className="text-xs text-zinc-400">butir</span></td>
                   <td className="px-4 py-3">{item.feed_consumed_kg} <span className="text-xs text-zinc-400">Kg</span></td>
                   <td className="px-4 py-3">{item.mortality} <span className="text-xs text-zinc-400">ekor</span></td>
-                  <td className="px-4 py-3 text-center">
-                    <div className="flex justify-center gap-1.5">
-                      <button onClick={() => { setEditing(item); setUpdateError(null); }} className="p-1.5 text-zinc-400 hover:text-blue-600 hover:bg-zinc-100 rounded-md transition-colors"><Pencil className="w-4 h-4" /></button>
-                      <button disabled={isDeleting === item.id} onClick={() => handleDelete(item.id)} className="p-1.5 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors">
-                        {isDeleting === item.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                  <td className="px-4 py-3 text-center whitespace-nowrap">
+                    <div className="flex justify-center gap-1.5 items-center">
+                      <button onClick={() => { setEditing(item); setUpdateError(null); setConfirmDeleteId(null); }}
+                        className="p-1.5 text-zinc-400 hover:text-blue-600 hover:bg-zinc-100 rounded-md transition-colors">
+                        <Pencil className="w-4 h-4" />
                       </button>
+                      {confirmDeleteId === item.id ? (
+                        <>
+                          <button onClick={() => setConfirmDeleteId(null)}
+                            className="text-[11px] font-semibold text-zinc-500 hover:text-zinc-800 px-2 py-1 rounded hover:bg-zinc-100 transition-colors">Batal</button>
+                          <button onClick={() => handleDelete(item.id)} disabled={isDeleting === item.id}
+                            className="flex items-center gap-1 text-[11px] font-semibold text-white bg-rose-600 hover:bg-rose-700 px-2.5 py-1 rounded transition-colors disabled:opacity-60">
+                            {isDeleting === item.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                            Hapus
+                          </button>
+                        </>
+                      ) : (
+                        <button disabled={isDeleting === item.id} onClick={() => setConfirmDeleteId(item.id)}
+                          className="p-1.5 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors">
+                          {isDeleting === item.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

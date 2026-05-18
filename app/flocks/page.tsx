@@ -62,6 +62,7 @@ export default function FlocksPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     name:                      '',
@@ -134,8 +135,8 @@ export default function FlocksPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Hapus batch ini? Data input harian yang terhubung akan ikut terhapus.')) return;
     setIsDeleting(id);
+    setConfirmDeleteId(null);
     setDeleteError(null);
     const { error } = await supabase.from('flocks').delete().eq('id', id);
     setIsDeleting(null);
@@ -345,13 +346,34 @@ export default function FlocksPage() {
                         <h3 className="text-base font-bold text-zinc-900 mt-1.5">{flock.name}</h3>
                         <p className="text-xs text-zinc-500">{flock.breed}</p>
                       </div>
-                      <button
-                        onClick={() => handleDelete(flock.id)}
-                        disabled={isDeleting === flock.id}
-                        className="p-1.5 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors disabled:opacity-50"
-                      >
-                        {isDeleting === flock.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                      </button>
+
+                      {/* Inline delete confirmation */}
+                      {confirmDeleteId === flock.id ? (
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            onClick={() => setConfirmDeleteId(null)}
+                            className="text-[11px] font-semibold text-zinc-500 hover:text-zinc-800 px-2 py-1 rounded hover:bg-zinc-100 transition-colors"
+                          >
+                            Batal
+                          </button>
+                          <button
+                            onClick={() => handleDelete(flock.id)}
+                            disabled={isDeleting === flock.id}
+                            className="flex items-center gap-1 text-[11px] font-semibold text-white bg-rose-600 hover:bg-rose-700 px-2.5 py-1 rounded transition-colors disabled:opacity-60"
+                          >
+                            {isDeleting === flock.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                            Hapus
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmDeleteId(flock.id)}
+                          disabled={isDeleting === flock.id}
+                          className="p-1.5 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors disabled:opacity-50 shrink-0"
+                        >
+                          {isDeleting === flock.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                        </button>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-3 gap-2 mt-4">

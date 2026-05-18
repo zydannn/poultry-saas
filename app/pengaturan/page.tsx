@@ -20,6 +20,7 @@ import { useSettings } from '@/context/SettingsContext';
 export default function SettingsPage() {
   const router = useRouter();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isSavingParams, setIsSavingParams] = useState(false);
@@ -140,12 +141,12 @@ export default function SettingsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       const res = await supabase
         .from('farm_profile')
-        .insert({
+        .upsert({
           farm_name: profile.farmName,
           owner_name: profile.ownerName,
           location: profile.location,
           user_id: user?.id,
-        })
+        }, { onConflict: 'user_id' })
         .select('id')
         .maybeSingle();
       if (res.data) setSettingsId(res.data.id);
@@ -188,7 +189,7 @@ export default function SettingsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       const res = await supabase
         .from('farm_profile')
-        .insert({
+        .upsert({
           selling_price: Number(parameters.sellingPrice),
           market_price: Number(parameters.marketPrice),
           default_egg_weight_grams: Number(parameters.defaultEggWeight),
@@ -197,7 +198,7 @@ export default function SettingsPage() {
           bird_depreciation_per_day: Number(parameters.birdDepreciationPerDay),
           target_hdp_percent: Number(parameters.targetHdpPercent),
           user_id: user?.id,
-        })
+        }, { onConflict: 'user_id' })
         .select('id')
         .maybeSingle();
       if (res.data) setSettingsId(res.data.id);
@@ -267,7 +268,7 @@ export default function SettingsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       const res = await supabase
         .from('farm_profile')
-        .insert({ show_help_bubble: newVal, user_id: user?.id })
+        .upsert({ show_help_bubble: newVal, user_id: user?.id }, { onConflict: 'user_id' })
         .select('id')
         .maybeSingle();
       if (res.data) setSettingsId(res.data.id);
@@ -285,12 +286,10 @@ export default function SettingsPage() {
   };
 
   const handleLogout = async () => {
-    if (confirm('Apakah Anda yakin ingin keluar?')) {
-      setIsLoggingOut(true);
-      await supabase.auth.signOut();
-      router.push('/login');
-      router.refresh();
-    }
+    setIsLoggingOut(true);
+    await supabase.auth.signOut();
+    router.push('/login');
+    router.refresh();
   };
 
   return (
@@ -646,14 +645,34 @@ export default function SettingsPage() {
                 <h3 className="text-sm font-medium text-red-600">Danger Zone</h3>
                 <p className="text-xs text-zinc-500">Aksi ini akan mengeluarkan Anda dari sesi saat ini.</p>
               </div>
-              <button
-                onClick={handleLogout}
-                disabled={isLoggingOut}
-                className="w-full flex justify-center items-center gap-2 px-5 py-2.5 border border-red-600 text-red-600 rounded-lg hover:bg-red-50 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <LogOut className="w-4 h-4" />
-                {isLoggingOut ? 'Memproses Keluar...' : 'Keluar / Logout'}
-              </button>
+
+              {showLogoutConfirm ? (
+                <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+                  <p className="flex-1 text-sm font-medium text-red-800">Yakin ingin keluar?</p>
+                  <button
+                    onClick={() => setShowLogoutConfirm(false)}
+                    className="text-xs font-semibold text-zinc-500 hover:text-zinc-800 px-3 py-1.5 rounded-md hover:bg-zinc-100 transition-colors"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    onClick={handleLogout}
+                    disabled={isLoggingOut}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 px-3 py-1.5 rounded-md transition-colors disabled:opacity-60"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    {isLoggingOut ? 'Keluar...' : 'Ya, Keluar'}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowLogoutConfirm(true)}
+                  className="w-full flex justify-center items-center gap-2 px-5 py-2.5 border border-red-600 text-red-600 rounded-lg hover:bg-red-50 transition-colors text-sm font-medium"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Keluar / Logout
+                </button>
+              )}
             </div>
 
           </div>

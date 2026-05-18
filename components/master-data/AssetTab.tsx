@@ -37,6 +37,7 @@ export default function AssetTab() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState(false);
 
@@ -96,7 +97,7 @@ export default function AssetTab() {
   };
 
   const handleDeleteAsset = async (id: string) => {
-    if (!confirm('Hapus aset ini secara permanen?')) return;
+    setConfirmDeleteId(null);
     setIsDeleting(id);
     await supabase.from('farm_assets').delete().eq('id', id);
     setIsDeleting(null);
@@ -205,11 +206,23 @@ export default function AssetTab() {
                           <td className="px-6 py-3 text-right font-medium">{formatRupiah(asset.acquisition_cost)}</td>
                           <td className="px-6 py-3 text-right">{asset.useful_life_months} <span className="text-xs text-zinc-400">bln</span></td>
                           <td className="px-6 py-3 text-right font-bold text-indigo-600">{formatRupiah(depPerMonth)}</td>
-                          <td className="px-6 py-3 text-center">
-                            <button disabled={isDeleting === asset.id} onClick={() => handleDeleteAsset(asset.id)}
-                              className="p-1.5 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors">
-                              {isDeleting === asset.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                            </button>
+                          <td className="px-6 py-3 text-center whitespace-nowrap">
+                            {confirmDeleteId === asset.id ? (
+                              <div className="flex items-center justify-center gap-1.5">
+                                <button onClick={() => setConfirmDeleteId(null)}
+                                  className="text-[11px] font-semibold text-zinc-500 hover:text-zinc-800 px-2 py-1 rounded hover:bg-zinc-100 transition-colors">Batal</button>
+                                <button onClick={() => handleDeleteAsset(asset.id)} disabled={isDeleting === asset.id}
+                                  className="flex items-center gap-1 text-[11px] font-semibold text-white bg-rose-600 hover:bg-rose-700 px-2.5 py-1 rounded transition-colors disabled:opacity-60">
+                                  {isDeleting === asset.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                                  Hapus
+                                </button>
+                              </div>
+                            ) : (
+                              <button disabled={isDeleting === asset.id} onClick={() => setConfirmDeleteId(asset.id)}
+                                className="p-1.5 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors">
+                                {isDeleting === asset.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                              </button>
+                            )}
                           </td>
                         </tr>
                       );

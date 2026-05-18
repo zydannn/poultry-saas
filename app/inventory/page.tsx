@@ -55,6 +55,7 @@ export default function InventoryPage() {
   const [formSuccess, setFormSuccess] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [confirmDeleteTxId, setConfirmDeleteTxId] = useState<string | null>(null);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -96,7 +97,7 @@ export default function InventoryPage() {
 
   // ── Delete purchase transaction ────────────────────────────────────────────
   const handleDeleteTransaction = async (id: string) => {
-    if (!confirm('Hapus entri pembelian ini? Stok pakan akan berkurang sesuai jumlah yang dihapus.')) return;
+    setConfirmDeleteTxId(null);
     setDeletingId(id);
     setDeleteError(null);
     const result = await deleteInventoryTransaction(id);
@@ -467,17 +468,32 @@ export default function InventoryPage() {
                           <td className="px-5 py-3 text-right font-medium text-zinc-800">
                             {total.toLocaleString('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 })}
                           </td>
-                          <td className="px-5 py-3 text-center">
-                            <button
-                              onClick={() => handleDeleteTransaction(tx.id)}
-                              disabled={deletingId === tx.id}
-                              className="p-1.5 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors disabled:opacity-40"
-                              title="Hapus entri pembelian ini"
-                            >
-                              {deletingId === tx.id
-                                ? <Loader2 className="w-4 h-4 animate-spin" />
-                                : <Trash2 className="w-4 h-4" />}
-                            </button>
+                          <td className="px-5 py-3 text-center whitespace-nowrap">
+                            {confirmDeleteTxId === tx.id ? (
+                              <div className="flex items-center justify-center gap-1.5">
+                                <button
+                                  onClick={() => setConfirmDeleteTxId(null)}
+                                  className="text-[11px] font-semibold text-zinc-500 hover:text-zinc-800 px-2 py-1 rounded hover:bg-zinc-100 transition-colors"
+                                >Batal</button>
+                                <button
+                                  onClick={() => handleDeleteTransaction(tx.id)}
+                                  disabled={deletingId === tx.id}
+                                  className="flex items-center gap-1 text-[11px] font-semibold text-white bg-rose-600 hover:bg-rose-700 px-2.5 py-1 rounded transition-colors disabled:opacity-60"
+                                >
+                                  {deletingId === tx.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                                  Hapus
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => setConfirmDeleteTxId(tx.id)}
+                                disabled={deletingId === tx.id}
+                                className="p-1.5 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors disabled:opacity-40"
+                                title="Hapus entri pembelian"
+                              >
+                                {deletingId === tx.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                              </button>
+                            )}
                           </td>
                         </tr>
                       );
