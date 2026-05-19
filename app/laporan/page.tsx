@@ -365,8 +365,50 @@ export default function LaporanPage() {
     URL.revokeObjectURL(url);
   };
 
-  // ── Export PDF ──────────────────────────────────────────────────────────────
-  const exportPDF = () => { window.print(); };
+  // ── Export PDF — popup window agar bebas dari AppShell overflow/height constraints ──
+  const exportPDF = () => {
+    const el = document.getElementById('pdf-print');
+    if (!el || !data) return;
+
+    const printContent = el.innerHTML;
+    const win = window.open('', '_blank', 'width=900,height=700');
+    if (!win) {
+      alert('Pop-up diblokir browser. Izinkan pop-up untuk poultryos.vercel.app lalu coba lagi.');
+      return;
+    }
+
+    const periodLabel = `${MONTH_NAMES[month - 1]} ${year}`;
+    win.document.write(`<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Laporan Laba Rugi — ${periodLabel}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      background: white;
+      font-family: Arial, Helvetica, sans-serif;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    @media screen { body { padding: 24px; } }
+    @media print {
+      @page { size: A4 portrait; margin: 1.2cm 1.5cm; }
+      body { margin: 0; padding: 0; }
+    }
+  </style>
+</head>
+<body>${printContent}</body>
+</html>`);
+    win.document.close();
+
+    // Tunggu hingga semua resource (termasuk font) selesai dimuat sebelum print
+    win.onload = () => {
+      win.focus();
+      win.print();
+    };
+  };
 
   // ── PDF-only derived values ──────────────────────────────────────────────────
   const hpp         = (data?.variableCost ?? 0) + (data?.depreciationBio ?? 0);
@@ -393,12 +435,25 @@ export default function LaporanPage() {
 
   return (
     <AppShell>
-      {/* Print CSS — hides entire app shell & page, shows only #pdf-print */}
+      {/* Print CSS — fallback untuk Ctrl+P langsung dari halaman ini */}
       <style>{`
         @media print {
-          header, nav, aside, [data-no-print] { display: none !important; }
-          body { background: white !important; margin: 0 !important; }
-          #pdf-print { display: block !important; }
+          body * { visibility: hidden; }
+          html, body {
+            height: auto !important;
+            overflow: visible !important;
+            background: white !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          #pdf-print {
+            visibility: visible !important;
+            display: block !important;
+            position: absolute !important;
+            top: 0 !important; left: 0 !important; right: 0 !important;
+            overflow: visible !important;
+          }
+          #pdf-print * { visibility: visible !important; overflow: visible !important; }
           @page { size: A4 portrait; margin: 1.2cm 1.5cm; }
         }
       `}</style>
