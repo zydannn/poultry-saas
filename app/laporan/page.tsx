@@ -17,6 +17,12 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+interface DepreciationItem {
+  name:                 string;
+  category?:            string;
+  monthly_depreciation: number;
+}
+
 interface PLData {
   revenueEgg:           number;
   revenueOther:         number;
@@ -30,13 +36,21 @@ interface PLData {
   inventoryPurchase:    number;
   incomeRows:           TxRow[];
   expenseRows:          TxRow[];
+  physicalDeprecItems:  DepreciationItem[];
+  bioDeprecItems:       DepreciationItem[];
 }
 
 interface TxRow {
-  date:   string;
-  type:   'income' | 'expense';
-  label:  string;
-  amount: number;
+  date:            string;
+  type:            'income' | 'expense';
+  label:           string;
+  amount:          number;
+  cost_type?:      string | null;
+  category?:       string;
+  description?:    string;
+  quantity?:       number;
+  price_per_unit?: number;
+  buyer_name?:     string;
 }
 
 interface TrendPoint {
@@ -173,9 +187,9 @@ export default function LaporanPage() {
         supabase.from('finance_expenses')
           .select('date, category, amount, description, cost_type')
           .gte('date', start).lte('date', end).order('date', { ascending: false }),
-        supabase.from('farm_assets').select('acquisition_cost, useful_life_months'),
+        supabase.from('farm_assets').select('asset_name, category, acquisition_cost, useful_life_months').order('category').order('asset_name'),
         supabase.from('flocks')
-          .select('acquisition_cost_total, estimated_productive_days, status')
+          .select('name, breed, acquisition_cost_total, estimated_productive_days, status')
           .gt('acquisition_cost_total', 0),
         // Trend: 6 months of income
         supabase.from('finance_income').select('date, total_revenue, quantity, price_per_unit')
@@ -193,10 +207,15 @@ export default function LaporanPage() {
         const amt = Number(row.total_revenue) || Number(row.quantity) * Number(row.price_per_unit) || 0;
         if (row.category === 'Penjualan Telur') revenueEgg += amt; else revenueOther += amt;
         incomeRows.push({
-          date:   row.date,
-          type:   'income',
-          label:  [row.category, row.buyer_name, row.description].filter(Boolean).join(' · '),
-          amount: amt,
+          date:           row.date,
+          type:           'income',
+          label:          [row.category, row.buyer_name, row.description].filter(Boolean).join(' · '),
+          amount:         amt,
+          category:       row.category,
+          description:    row.description || undefined,
+          quantity:       Number(row.quantity) || undefined,
+          price_per_unit: Number(row.price_per_unit) || undefined,
+          buyer_name:     row.buyer_name || undefined,
         });
       }
 
@@ -206,7 +225,8 @@ export default function LaporanPage() {
       const expenseRows: TxRow[] = [];
       for (const row of expenseData) {
         const amt = Number(row.amount) || 0;
-        if (row.cost_type === 'Inventaris') {
+        // BUG FIX: Pembelian Pakan has cost_type='Fixed' in DB but is an inventory asset purchase (non-P&L)
+        if (row.category?.startsWith('Pembelian') || row.cost_type === 'Inventaris') {
           inventoryPurchase += amt; // kas keluar — aset, bukan beban P&L
         } else if (row.cost_type === 'Variable') {
           variableCost += amt;
@@ -214,30 +234,41 @@ export default function LaporanPage() {
           fixedCashCost += amt;
         }
         expenseRows.push({
-          date:   row.date,
-          type:   'expense',
-          label:  [row.category, row.cost_type === 'Inventaris' ? '(Pembelian Aset)' : null, row.description].filter(Boolean).join(' — '),
-          amount: amt,
+          date:        row.date,
+          type:        'expense',
+          label:       [row.category, (row.cost_type === 'Inventaris' || row.category?.startsWith('Pembelian')) ? '(Pembelian Aset)' : null, row.description].filter(Boolean).join(' — '),
+          amount:      amt,
+          cost_type:   row.cost_type,
+          category:    row.category,
+          description: row.description || undefined,
         });
       }
 
-      // ── Depreciation (current month) ─────────────────────────────────────────
+      // ── Depreciation (current month) — per-asset & per-flock ─────────────────
       const assetsData = assetsRes.data ?? [];
-      const depreciationPhysical = assetsData.reduce((s, a) =>
-        s + (Number(a.acquisition_cost) || 0) / (Number(a.useful_life_months) || 1), 0);
+      const physicalDeprecItems: DepreciationItem[] = assetsData.map((a: any) => ({
+        name:                 a.asset_name as string,
+        category:             a.category as string,
+        monthly_depreciation: (Number(a.acquisition_cost) || 0) / (Number(a.useful_life_months) || 1),
+      }));
+      const depreciationPhysical = physicalDeprecItems.reduce((s, i) => s + i.monthly_depreciation, 0);
 
       const flocksData = flocksRes.data ?? [];
-      const depreciationBio = flocksData
-        .filter(f => !INACTIVE_STATUSES.includes(f.status))
-        .reduce((s, f) =>
-          s + (Number(f.acquisition_cost_total) || 0) / Math.max(Number(f.estimated_productive_days) || 1, 1) * daysInMonth, 0);
+      const bioDeprecItems: DepreciationItem[] = flocksData
+        .filter((f: any) => !INACTIVE_STATUSES.includes(f.status))
+        .map((f: any) => ({
+          name:                 f.name as string,
+          category:             (f.breed as string) || undefined,
+          monthly_depreciation: (Number(f.acquisition_cost_total) || 0) / Math.max(Number(f.estimated_productive_days) || 1, 1) * daysInMonth,
+        }));
+      const depreciationBio = bioDeprecItems.reduce((s, i) => s + i.monthly_depreciation, 0);
 
       // ── Totals ────────────────────────────────────────────────────────────────
       const totalRevenue = revenueEgg + revenueOther;
       const totalCost    = variableCost + fixedCashCost + depreciationPhysical + depreciationBio;
       const netProfit    = totalRevenue - totalCost;
 
-      setData({ revenueEgg, revenueOther, totalRevenue, variableCost, fixedCashCost, depreciationPhysical, depreciationBio, totalCost, netProfit, inventoryPurchase, incomeRows, expenseRows });
+      setData({ revenueEgg, revenueOther, totalRevenue, variableCost, fixedCashCost, depreciationPhysical, depreciationBio, totalCost, netProfit, inventoryPurchase, incomeRows, expenseRows, physicalDeprecItems, bioDeprecItems });
 
       // ── Build 6-month trend ──────────────────────────────────────────────────
       const monthlyRev:  Record<string, number> = {};
@@ -376,16 +407,31 @@ export default function LaporanPage() {
       <div id="pdf-print" style={{ display: 'none' }}>
         {data && (() => {
           const isProfit = data.netProfit >= 0;
-          const ROW_STYLE: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '5px 0' };
-          const INDENT_STYLE: React.CSSProperties = { ...ROW_STYLE, paddingLeft: '16px' };
-          const SECTION_HDR: React.CSSProperties = { fontSize: '10px', fontWeight: 700, letterSpacing: '1.2px', textTransform: 'uppercase' as const, color: '#18181b', borderBottom: '1.5px solid #18181b', paddingBottom: '4px', marginTop: '20px', marginBottom: '2px' };
-          const LABEL: React.CSSProperties = { fontSize: '12px', color: '#3f3f46' };
-          const SUB_LABEL: React.CSSProperties = { fontSize: '10px', color: '#a1a1aa', marginLeft: '6px' };
-          const AMT_CREDIT: React.CSSProperties = { fontSize: '12px', color: '#18181b', fontVariantNumeric: 'tabular-nums', minWidth: '140px', textAlign: 'right' as const };
+
+          // ── Style constants ──────────────────────────────────────────────────
+          const SECTION_HDR: React.CSSProperties = { fontSize: '10px', fontWeight: 700, letterSpacing: '1.2px', textTransform: 'uppercase' as const, color: '#18181b', borderBottom: '1.5px solid #18181b', paddingBottom: '4px', marginTop: '22px', marginBottom: '2px' };
+          const SUB_HDR: React.CSSProperties = { fontSize: '9px', fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' as const, color: '#71717a', borderBottom: '1px solid #e4e4e7', paddingBottom: '3px', marginTop: '12px', marginBottom: '1px', paddingLeft: '14px' };
+          const ROW: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '4px 0 4px 14px', gap: '8px' };
+          const LABEL_COL: React.CSSProperties = { flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: '6px', fontSize: '11.5px', color: '#3f3f46' };
+          const DATE_CHIP: React.CSSProperties = { fontSize: '10px', color: '#a1a1aa', minWidth: '54px', flexShrink: 0 };
+          const AMT_CREDIT: React.CSSProperties = { fontSize: '11.5px', color: '#18181b', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' as const, textAlign: 'right' as const, minWidth: '130px', flexShrink: 0 };
           const AMT_DEBIT: React.CSSProperties = { ...AMT_CREDIT, color: '#dc2626' };
-          const TOTAL_LABEL: React.CSSProperties = { fontSize: '12px', fontWeight: 700, color: '#18181b', borderTop: '1px solid #d4d4d8', paddingTop: '6px', marginTop: '2px' };
-          const TOTAL_AMT_G: React.CSSProperties = { ...AMT_CREDIT, fontWeight: 700, borderTop: '1px solid #d4d4d8', paddingTop: '6px', marginTop: '2px', color: '#059669' };
-          const TOTAL_AMT_R: React.CSSProperties = { ...AMT_CREDIT, fontWeight: 700, borderTop: '1px solid #d4d4d8', paddingTop: '6px', marginTop: '2px', color: '#dc2626' };
+          const TOTAL_ROW: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', borderTop: '1px solid #d4d4d8', paddingTop: '5px', marginTop: '3px', padding: '5px 0 3px 0' };
+          const TOTAL_LBL: React.CSSProperties = { fontSize: '12px', fontWeight: 700, color: '#18181b' };
+          const TOTAL_G: React.CSSProperties = { fontSize: '12px', fontWeight: 700, color: '#059669', fontVariantNumeric: 'tabular-nums', minWidth: '130px', textAlign: 'right' as const };
+          const TOTAL_R: React.CSSProperties = { ...TOTAL_G, color: '#dc2626' };
+
+          // ── Data partitioning ────────────────────────────────────────────────
+          const variableRows = data.expenseRows.filter(r => r.cost_type === 'Variable');
+          const feedRows     = variableRows.filter(r => r.category === 'Biaya Pakan' || r.category?.includes('Pakan'));
+          const nonFeedVarRows = variableRows.filter(r => r.category !== 'Biaya Pakan' && !r.category?.includes('Pakan'));
+          const fixedCashRows = data.expenseRows.filter(r =>
+            r.cost_type !== 'Variable' && !r.category?.startsWith('Pembelian') && r.cost_type !== 'Inventaris'
+          );
+          const totalFeedCost = feedRows.reduce((s, r) => s + r.amount, 0);
+
+          // ── Date formatter ───────────────────────────────────────────────────
+          const fmtD = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
 
           return (
             <div style={{ fontFamily: "'Arial', 'Helvetica', sans-serif", color: '#18181b', maxWidth: '680px', margin: '0 auto' }}>
@@ -395,9 +441,7 @@ export default function LaporanPage() {
                 <div>
                   <div style={{ fontSize: '18px', fontWeight: 800, letterSpacing: '-0.5px' }}>PoultryOS</div>
                   <div style={{ fontSize: '9px', color: '#71717a', marginTop: '2px', letterSpacing: '1.5px', textTransform: 'uppercase' }}>Farm Intelligence Platform</div>
-                  {farmName && (
-                    <div style={{ fontSize: '12px', color: '#d4d4d8', marginTop: '8px', fontWeight: 600 }}>{farmName}</div>
-                  )}
+                  {farmName && <div style={{ fontSize: '12px', color: '#d4d4d8', marginTop: '8px', fontWeight: 600 }}>{farmName}</div>}
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontSize: '15px', fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' }}>Laporan Laba Rugi</div>
@@ -410,65 +454,144 @@ export default function LaporanPage() {
               {/* ── P&L Body ────────────────────────────────────────── */}
               <div style={{ padding: '4px 0 0' }}>
 
-                {/* PENDAPATAN */}
+                {/* ═══ PENDAPATAN USAHA ═══════════════════════════════ */}
                 <div style={SECTION_HDR}>Pendapatan Usaha</div>
-                <div style={INDENT_STYLE}>
-                  <span style={LABEL}>Penjualan Telur</span>
-                  <span style={AMT_CREDIT}>{fmtCredit(data.revenueEgg)}</span>
-                </div>
-                {data.revenueOther > 0 && (
-                  <div style={INDENT_STYLE}>
-                    <span style={LABEL}>Pendapatan Lainnya</span>
-                    <span style={AMT_CREDIT}>{fmtCredit(data.revenueOther)}</span>
+                {data.incomeRows.length === 0 && (
+                  <div style={{ ...ROW, color: '#a1a1aa', fontSize: '11px' }}>
+                    <span>Tidak ada transaksi pendapatan bulan ini.</span>
+                    <span style={AMT_CREDIT}>—</span>
                   </div>
                 )}
-                <div style={{ ...ROW_STYLE, borderTop: '1px solid #d4d4d8', paddingTop: '6px', marginTop: '2px' }}>
-                  <span style={TOTAL_LABEL}>Total Pendapatan</span>
-                  <span style={TOTAL_AMT_G}>{fmtCredit(data.totalRevenue)}</span>
+                {data.incomeRows.map((row, i) => (
+                  <div key={i} style={ROW}>
+                    <span style={LABEL_COL}>
+                      <span style={DATE_CHIP}>{fmtD(row.date)}</span>
+                      <span>
+                        {row.category || 'Pendapatan'}
+                        {row.buyer_name ? <span style={{ color: '#71717a' }}> — {row.buyer_name}</span> : null}
+                        {row.quantity && row.price_per_unit
+                          ? <span style={{ color: '#a1a1aa', fontSize: '10px' }}> ({row.quantity.toLocaleString('id-ID')} × {fmtCredit(row.price_per_unit)}/butir)</span>
+                          : null}
+                      </span>
+                    </span>
+                    <span style={AMT_CREDIT}>{fmtCredit(row.amount)}</span>
+                  </div>
+                ))}
+                <div style={TOTAL_ROW}>
+                  <span style={TOTAL_LBL}>Total Pendapatan</span>
+                  <span style={TOTAL_G}>{fmtCredit(data.totalRevenue)}</span>
                 </div>
 
-                {/* HPP */}
+                {/* ═══ HARGA POKOK PRODUKSI (HPP) ═════════════════════ */}
                 <div style={SECTION_HDR}>Harga Pokok Produksi (HPP)</div>
-                <div style={INDENT_STYLE}>
-                  <span style={LABEL}>Biaya Pakan <span style={SUB_LABEL}>(Variabel / HPP Langsung)</span></span>
-                  <span style={AMT_DEBIT}>{fmtDebit(data.variableCost)}</span>
-                </div>
-                <div style={INDENT_STYLE}>
-                  <span style={LABEL}>Penyusutan Biologis Ayam <span style={SUB_LABEL}>(Batch aktif)</span></span>
-                  <span style={AMT_DEBIT}>{fmtDebit(data.depreciationBio)}</span>
-                </div>
-                <div style={{ ...ROW_STYLE, borderTop: '1px solid #d4d4d8', paddingTop: '6px', marginTop: '2px' }}>
-                  <span style={TOTAL_LABEL}>Total Harga Pokok Produksi</span>
-                  <span style={TOTAL_AMT_R}>{fmtDebit(hpp)}</span>
+
+                {/* Sub: Biaya Pakan — 1 baris agregat + catatan jumlah entri */}
+                <div style={SUB_HDR}>Biaya Konsumsi Pakan (Variabel)</div>
+                <div style={ROW}>
+                  <span style={LABEL_COL}>
+                    <span style={{ fontWeight: 600, color: '#18181b' }}>Biaya Pakan</span>
+                    <span style={{ fontSize: '10px', color: '#a1a1aa' }}>
+                      {feedRows.length > 0 ? `(${feedRows.length} entri konsumsi harian — input otomatis)` : '(tidak ada data konsumsi)'}
+                    </span>
+                  </span>
+                  <span style={AMT_DEBIT}>{fmtDebit(totalFeedCost)}</span>
                 </div>
 
-                {/* LABA KOTOR — intermediate line */}
+                {/* Sub: Biaya Variabel Lainnya — tiap transaksi satu baris */}
+                {nonFeedVarRows.length > 0 && (
+                  <>
+                    <div style={SUB_HDR}>Biaya Variabel Lainnya</div>
+                    {nonFeedVarRows.map((row, i) => (
+                      <div key={i} style={ROW}>
+                        <span style={LABEL_COL}>
+                          <span style={DATE_CHIP}>{fmtD(row.date)}</span>
+                          <span>
+                            {row.category || 'Biaya Variabel'}
+                            {row.description ? <span style={{ color: '#71717a' }}> — {row.description}</span> : null}
+                          </span>
+                        </span>
+                        <span style={AMT_DEBIT}>{fmtDebit(row.amount)}</span>
+                      </div>
+                    ))}
+                  </>
+                )}
+
+                {/* Sub: Penyusutan Biologis — tiap batch aktif satu baris */}
+                <div style={SUB_HDR}>Penyusutan Biologis Ayam (Batch Aktif)</div>
+                {data.bioDeprecItems.length === 0 ? (
+                  <div style={{ ...ROW, color: '#a1a1aa', fontSize: '11px' }}>
+                    <span>Tidak ada batch aktif.</span>
+                    <span style={AMT_DEBIT}>—</span>
+                  </div>
+                ) : data.bioDeprecItems.map((item, i) => (
+                  <div key={i} style={ROW}>
+                    <span style={LABEL_COL}>
+                      <span style={{ fontWeight: 500, color: '#18181b' }}>{item.name}</span>
+                      {item.category ? <span style={{ color: '#71717a', fontSize: '10.5px' }}>({item.category})</span> : null}
+                    </span>
+                    <span style={AMT_DEBIT}>{fmtDebit(item.monthly_depreciation)}</span>
+                  </div>
+                ))}
+
+                <div style={TOTAL_ROW}>
+                  <span style={TOTAL_LBL}>Total Harga Pokok Produksi</span>
+                  <span style={TOTAL_R}>{fmtDebit(hpp)}</span>
+                </div>
+
+                {/* ═══ LABA KOTOR ═════════════════════════════════════ */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', borderTop: '2px solid #18181b', borderBottom: '1px solid #d4d4d8', padding: '8px 0', marginTop: '4px' }}>
                   <span style={{ fontSize: '13px', fontWeight: 800, color: '#18181b' }}>Laba Kotor</span>
-                  <span style={{ fontSize: '13px', fontWeight: 800, color: labaKotor >= 0 ? '#059669' : '#dc2626', fontVariantNumeric: 'tabular-nums', minWidth: '140px', textAlign: 'right' }}>
+                  <span style={{ fontSize: '13px', fontWeight: 800, color: labaKotor >= 0 ? '#059669' : '#dc2626', fontVariantNumeric: 'tabular-nums', minWidth: '130px', textAlign: 'right' }}>
                     {labaKotor < 0 ? fmtDebit(Math.abs(labaKotor)) : fmtCredit(labaKotor)}
                   </span>
                 </div>
 
-                {/* BIAYA OPERASIONAL */}
+                {/* ═══ BIAYA OPERASIONAL & OVERHEAD ═══════════════════ */}
                 <div style={SECTION_HDR}>Biaya Operasional &amp; Overhead</div>
-                <div style={INDENT_STYLE}>
-                  <span style={LABEL}>Penyusutan Aset Fisik <span style={SUB_LABEL}>(Kandang, mesin, peralatan)</span></span>
-                  <span style={AMT_DEBIT}>{fmtDebit(data.depreciationPhysical)}</span>
-                </div>
-                {data.fixedCashCost > 0 && (
-                  <div style={INDENT_STYLE}>
-                    <span style={LABEL}>Biaya Operasional Tetap <span style={SUB_LABEL}>(Listrik, gaji, transport, dll.)</span></span>
-                    <span style={AMT_DEBIT}>{fmtDebit(data.fixedCashCost)}</span>
+
+                {/* Sub: Penyusutan Aset Fisik — tiap aset satu baris */}
+                <div style={SUB_HDR}>Penyusutan Aset Fisik</div>
+                {data.physicalDeprecItems.length === 0 ? (
+                  <div style={{ ...ROW, color: '#a1a1aa', fontSize: '11px' }}>
+                    <span>Tidak ada aset terdaftar.</span>
+                    <span style={AMT_DEBIT}>—</span>
                   </div>
+                ) : data.physicalDeprecItems.map((item, i) => (
+                  <div key={i} style={ROW}>
+                    <span style={LABEL_COL}>
+                      <span style={{ fontWeight: 500, color: '#18181b' }}>{item.name}</span>
+                      {item.category ? <span style={{ color: '#71717a', fontSize: '10.5px' }}>({item.category})</span> : null}
+                    </span>
+                    <span style={AMT_DEBIT}>{fmtDebit(item.monthly_depreciation)}</span>
+                  </div>
+                ))}
+
+                {/* Sub: Biaya Operasional Tetap (Kas) — tiap transaksi satu baris */}
+                {fixedCashRows.length > 0 && (
+                  <>
+                    <div style={SUB_HDR}>Biaya Operasional Tetap (Kas)</div>
+                    {fixedCashRows.map((row, i) => (
+                      <div key={i} style={ROW}>
+                        <span style={LABEL_COL}>
+                          <span style={DATE_CHIP}>{fmtD(row.date)}</span>
+                          <span>
+                            {row.category || 'Biaya Operasional'}
+                            {row.description ? <span style={{ color: '#71717a' }}> — {row.description}</span> : null}
+                          </span>
+                        </span>
+                        <span style={AMT_DEBIT}>{fmtDebit(row.amount)}</span>
+                      </div>
+                    ))}
+                  </>
                 )}
-                <div style={{ ...ROW_STYLE, borderTop: '1px solid #d4d4d8', paddingTop: '6px', marginTop: '2px' }}>
-                  <span style={TOTAL_LABEL}>Total Biaya Operasional</span>
-                  <span style={TOTAL_AMT_R}>{fmtDebit(totalOpex)}</span>
+
+                <div style={TOTAL_ROW}>
+                  <span style={TOTAL_LBL}>Total Biaya Operasional</span>
+                  <span style={TOTAL_R}>{fmtDebit(totalOpex)}</span>
                 </div>
 
-                {/* LABA BERSIH */}
-                <div style={{ marginTop: '12px', background: isProfit ? '#f0fdf4' : '#fff1f2', border: `1.5px solid ${isProfit ? '#bbf7d0' : '#fecdd3'}`, borderRadius: '6px', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                {/* ═══ LABA / RUGI BERSIH ═════════════════════════════ */}
+                <div style={{ marginTop: '14px', background: isProfit ? '#f0fdf4' : '#fff1f2', border: `1.5px solid ${isProfit ? '#bbf7d0' : '#fecdd3'}`, borderRadius: '6px', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: '14px', fontWeight: 800, letterSpacing: '0.5px', textTransform: 'uppercase' as const, color: isProfit ? '#065f46' : '#9f1239' }}>
                     {isProfit ? 'Laba Bersih' : 'Rugi Bersih'}
                   </span>
@@ -477,19 +600,19 @@ export default function LaporanPage() {
                   </span>
                 </div>
 
-                {/* Non-P&L note */}
+                {/* Catatan Arus Kas — Pembelian Inventaris (Non-P&L) */}
                 {data.inventoryPurchase > 0 && (
                   <div style={{ marginTop: '8px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '4px', padding: '8px 12px', fontSize: '10px', color: '#92400e' }}>
-                    <strong>Catatan Arus Kas:</strong> Pembelian inventaris pakan periode ini sebesar {fmtCredit(data.inventoryPurchase)} dicatat sebagai aset (bukan beban P&amp;L). Biaya pakan diakui ke HPP saat dikonsumsi.
+                    <strong>Catatan Arus Kas:</strong> Pembelian inventaris pakan periode ini sebesar {fmtCredit(data.inventoryPurchase)} dicatat sebagai aset (bukan beban P&amp;L). Biaya pakan diakui ke HPP saat dikonsumsi (Perpetual Inventory Method).
                   </div>
                 )}
 
-                {/* METRICS BAR */}
+                {/* ═══ RINGKASAN KPI ═══════════════════════════════════ */}
                 <div style={{ marginTop: '20px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1px', background: '#e4e4e7', border: '1px solid #e4e4e7', borderRadius: '6px', overflow: 'hidden' }}>
                   {[
-                    { label: 'Profit Margin', value: `${profitMargin}%`, sub: 'Laba / Pendapatan' },
-                    { label: 'Biaya Non-Kas', value: fmtCredit(nonCashCost), sub: 'Penyusutan bulan ini' },
-                    { label: 'Total Pendapatan', value: fmtCredit(data.totalRevenue), sub: `${MONTH_NAMES[month - 1]} ${year}` },
+                    { label: 'Profit Margin',    value: `${profitMargin}%`,          sub: 'Laba Bersih / Pendapatan' },
+                    { label: 'Biaya Non-Kas',     value: fmtCredit(nonCashCost),      sub: 'Total penyusutan bulan ini' },
+                    { label: 'Total Pendapatan',  value: fmtCredit(data.totalRevenue), sub: `${MONTH_NAMES[month - 1]} ${year}` },
                   ].map(kpi => (
                     <div key={kpi.label} style={{ background: 'white', padding: '10px 14px' }}>
                       <div style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.8px', color: '#a1a1aa', marginBottom: '4px' }}>{kpi.label}</div>
@@ -499,7 +622,7 @@ export default function LaporanPage() {
                   ))}
                 </div>
 
-                {/* FOOTNOTE */}
+                {/* ═══ FOOTNOTE ════════════════════════════════════════ */}
                 <div style={{ marginTop: '20px', borderTop: '1px solid #e4e4e7', paddingTop: '10px', fontSize: '9px', color: '#a1a1aa', lineHeight: '1.6' }}>
                   <p>Laporan ini menggunakan <strong style={{ color: '#71717a' }}>Full Costing Method</strong> — seluruh biaya tetap (termasuk penyusutan non-kas) dibebankan ke periode berjalan. Biaya pakan diakui ke HPP saat dikonsumsi, bukan saat dibeli (Perpetual Inventory). Angka penyusutan aset dihitung berdasarkan biaya perolehan dibagi masa manfaat. Laporan ini bersifat internal dan tidak merupakan laporan keuangan audited.</p>
                   <p style={{ marginTop: '6px', color: '#d4d4d8' }}>Dibuat secara otomatis oleh <strong style={{ color: '#a1a1aa' }}>PoultryOS — Farm Intelligence Platform</strong> · {printedAt}</p>
