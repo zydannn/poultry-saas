@@ -34,15 +34,15 @@ export default function ProductionTab() {
 
     if (records) {
       setData(records.map((r: any) => ({
-        id: r.id,
-        date: r.date,
-        shift: r.shift,
-        flock_id: r.flock_id,
-        flock_name: r.flocks?.name ?? '—',
-        good_eggs: r.good_eggs,
-        broken_eggs: r.broken_eggs,
-        feed_consumed_kg: r.feed_consumed_kg,
-        mortality: r.mortality,
+        id:               r.id,
+        date:             r.date,
+        shift:            r.shift,
+        flock_id:         r.flock_id,
+        flock_name:       r.flocks?.name ?? '—',
+        good_eggs:        Number(r.good_eggs),
+        broken_eggs:      Number(r.broken_eggs),
+        feed_consumed_kg: Number(r.feed_consumed_kg),  // numeric → Number agar tidak string
+        mortality:        Number(r.mortality),
       })));
     }
     setLoading(false);
@@ -66,16 +66,27 @@ export default function ProductionTab() {
     setIsUpdating(true);
     setUpdateError(null);
     try {
-      const { error } = await supabase.from('daily_records').update({
-        date: editing.date,
-        good_eggs: editing.good_eggs,
-        broken_eggs: editing.broken_eggs,
-        feed_consumed_kg: editing.feed_consumed_kg,
-        mortality: editing.mortality,
-      }).eq('id', editing.id);
+      const { data: updated, error } = await supabase
+        .from('daily_records')
+        .update({
+          date:             editing.date,
+          good_eggs:        editing.good_eggs,
+          broken_eggs:      editing.broken_eggs,
+          feed_consumed_kg: editing.feed_consumed_kg,
+          mortality:        editing.mortality,
+        })
+        .eq('id', editing.id)
+        .select('id');          // .select() agar bisa deteksi 0 row updated
+
       if (error) throw error;
+
+      // Jika 0 baris terupdate → kemungkinan sesi habis atau data milik user lain
+      if (!updated || updated.length === 0) {
+        throw new Error('Data gagal disimpan. Coba refresh halaman dan login ulang jika masalah berlanjut.');
+      }
+
       setEditing(null);
-      fetchData();
+      await fetchData();        // await agar tabel langsung refresh sebelum modal hilang
     } catch (error: any) {
       setUpdateError(error?.message ?? 'Gagal memperbarui data.');
     } finally {
