@@ -97,26 +97,40 @@ export default function FinanceTab() {
     try {
       if (editing.sourceTable === 'finance_income') {
         const payload = {
-          date: editing.date,
-          category: editing.category,
-          description: editing.notes,
-          quantity: editing.quantity,
+          date:          editing.date,
+          category:      editing.category,
+          description:   editing.notes,
+          quantity:      editing.quantity,
           price_per_unit: editing.price_per_unit,
+          // total_revenue juga dikirim sebagai fallback; DB trigger BEFORE UPDATE sudah otomatis menghitung ulang
+          total_revenue: (editing.quantity ?? 0) * (editing.price_per_unit ?? 0),
         };
-        const { error } = await supabase.from('finance_income').update(payload).eq('id', editing.id);
+        const { data: updated, error } = await supabase
+          .from('finance_income')
+          .update(payload)
+          .eq('id', editing.id)
+          .select('id');
         if (error) throw error;
+        if (!updated || updated.length === 0)
+          throw new Error('Data gagal disimpan. Coba refresh halaman dan login ulang jika masalah berlanjut.');
       } else {
         const payload = {
-          date: editing.date,
-          category: editing.category,
+          date:        editing.date,
+          category:    editing.category,
           description: editing.notes,
-          amount: editing.amount
+          amount:      editing.amount,
         };
-        const { error } = await supabase.from('finance_expenses').update(payload).eq('id', editing.id);
+        const { data: updated, error } = await supabase
+          .from('finance_expenses')
+          .update(payload)
+          .eq('id', editing.id)
+          .select('id');
         if (error) throw error;
+        if (!updated || updated.length === 0)
+          throw new Error('Data gagal disimpan. Coba refresh halaman dan login ulang jika masalah berlanjut.');
       }
       setEditing(null);
-      fetchData();
+      await fetchData();
     } catch (error: any) {
       setUpdateError(error?.message ?? 'Gagal memperbarui data.');
     } finally {

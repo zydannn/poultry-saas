@@ -69,18 +69,25 @@ export async function submitDailySupplement(
       .single();
 
     if (invItem) {
-      // Deduct quantity (floor at 0)
+      // Deduct quantity — inventory has CHECK (quantity >= 0), jadi akan error jika stok habis
       const newQty = Math.max(0, Number(invItem.quantity) - payload.quantity);
-      await supabase
+      const { error: stokError } = await supabase
         .from('inventory')
         .update({ quantity: newQty })
         .eq('id', invItem.id);
+
+      if (stokError) {
+        return {
+          success: false,
+          error: `Data suplemen tersimpan, tetapi stok inventaris gagal diperbarui: ${stokError.message}`,
+        };
+      }
 
       // Catat biaya variabel ke finance_expenses jika ada unit_cost
       const unitCost = Number(invItem.unit_cost ?? 0);
       const totalCost = unitCost * payload.quantity;
       if (totalCost > 0) {
-        await supabase.from('finance_expenses').insert({
+        const { error: financeError } = await supabase.from('finance_expenses').insert({
           user_id:     user.id,
           date:        payload.date,
           category:    `Biaya ${payload.category}`,
@@ -88,6 +95,13 @@ export async function submitDailySupplement(
           amount:      totalCost,
           cost_type:   'Variable',
         });
+
+        if (financeError) {
+          return {
+            success: false,
+            error: `Data suplemen dan stok tersimpan, tetapi pencatatan biaya keuangan gagal: ${financeError.message}`,
+          };
+        }
       }
     }
   }
