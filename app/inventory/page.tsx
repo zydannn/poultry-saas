@@ -60,12 +60,26 @@ export default function InventoryPage() {
   // Form State
   const [formData, setFormData] = useState({
     item_name: '',
-    category: 'Pakan' as InventoryCategory,
-    quantity_input: '',
-    unit: 'Kg' as UnitOfMeasurement,
-    unit_cost: '',
-    transaction_date: new Date().toISOString().split('T')[0], // Default: today
+    category:         'Pakan' as InventoryCategory,
+    quantity_input:   '',
+    unit:             'Kg' as UnitOfMeasurement,
+    unit_cost:        '',   // non-Pakan: harga per unit (input langsung)
+    total_harga:      '',   // Pakan: total yang dibayar → sistem hitung harga/Kg
+    transaction_date: new Date().toISOString().split('T')[0],
   });
+
+  // ── Derived values untuk mode Pakan ─────────────────────────────────────────
+  const isPakan = formData.category === 'Pakan';
+  const qtyNum        = parseFloat(formData.quantity_input) || 0;
+  const totalHargaNum = parseFloat(formData.total_harga)    || 0;
+  // Harga per Kg otomatis: hanya dihitung jika qty > 0 dan total > 0
+  const computedUnitCost = isPakan && qtyNum > 0 && totalHargaNum > 0
+    ? totalHargaNum / qtyNum
+    : 0;
+  // Sanity check: kisaran wajar pakan ayam layer Indonesia ~Rp 3.000–20.000/Kg
+  const isHargaTerlalu  = computedUnitCost > 0 && computedUnitCost < 3_000;
+  const isHargaLebih    = computedUnitCost > 20_000;
+  const isUnitCostWarning = isHargaTerlalu || isHargaLebih;
 
   // ── Fetch SSOT aggregated stock from feed_stock_ledger view ───────────────
   const fetchLedger = useCallback(async () => {
@@ -114,7 +128,19 @@ export default function InventoryPage() {
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    if (name === 'category') {
+      // Saat kategori berubah: reset field harga & sesuaikan unit default
+      setFormData(prev => ({
+        ...prev,
+        category:      value as InventoryCategory,
+        unit:          value === 'Pakan' ? 'Kg' : 'Botol',
+        unit_cost:     '',
+        total_harga:   '',
+        quantity_input: '',
+      }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
   };
 
   // ── Submit — wired to submitFeedPurchase Server Action ───────────────────────
@@ -123,17 +149,42 @@ export default function InventoryPage() {
     setFormError(null);
     setFormSuccess(false);
 
-    if (!formData.item_name || !formData.quantity_input || !formData.unit_cost) {
-      setFormError('Mohon lengkapi semua kolom sebelum menyimpan.');
+    // ── Validasi per mode ────────────────────────────────────────────────────
+    if (!formData.item_name.trim()) {
+      setFormError('Nama item wajib diisi.');
       return;
     }
+    if (isPakan) {
+      if (!formData.total_harga || !formData.quantity_input) {
+        setFormError('Total harga dan jumlah pakan wajib diisi.');
+        return;
+      }
+      if (totalHargaNum <= 0 || qtyNum <= 0) {
+        setFormError('Total harga dan jumlah pakan harus lebih dari 0.');
+        return;
+      }
+      if (computedUnitCost < 500) {
+        setFormError(`Harga per Kg hasil kalkulasi (Rp ${Math.round(computedUnitCost).toLocaleString('id-ID')}/Kg) terlalu rendah — kemungkinan salah input. Periksa kembali total harga dan jumlah pakan.`);
+        return;
+      }
+    } else {
+      if (!formData.quantity_input || !formData.unit_cost) {
+        setFormError('Mohon lengkapi semua kolom sebelum menyimpan.');
+        return;
+      }
+    }
+
+    // ── Bangun payload ───────────────────────────────────────────────────────
+    const finalUnitCost = isPakan
+      ? computedUnitCost                  // hasil kalkulasi: total ÷ qty
+      : parseFloat(formData.unit_cost);   // input langsung (non-Pakan)
 
     const payload: FeedPurchasePayload = {
-      feed_name:        formData.item_name,
+      feed_name:        formData.item_name.trim(),
       category:         formData.category,
-      quantity:         parseFloat(formData.quantity_input),
-      unit_cost:        parseFloat(formData.unit_cost),
-      transaction_date: formData.transaction_date, // From UI date picker
+      quantity:         qtyNum,
+      unit_cost:        finalUnitCost,
+      transaction_date: formData.transaction_date,
     };
 
     setIsSaving(true);
@@ -145,9 +196,17 @@ export default function InventoryPage() {
       return;
     }
 
-    // ✔ Success: reset form, show banner, re-fetch SSOT ledger
+    // ✔ Sukses: reset form, tampilkan banner, re-fetch data
     setFormSuccess(true);
-    setFormData({ item_name: '', category: 'Pakan', quantity_input: '', unit: 'Kg', unit_cost: '', transaction_date: new Date().toISOString().split('T')[0] });
+    setFormData({
+      item_name:        '',
+      category:         formData.category,  // pertahankan pilihan kategori
+      quantity_input:   '',
+      unit:             formData.category === 'Pakan' ? 'Kg' : 'Botol',
+      unit_cost:        '',
+      total_harga:      '',
+      transaction_date: new Date().toISOString().split('T')[0],
+    });
     fetchLedger();
     setTimeout(() => setFormSuccess(false), 4000);
   };
@@ -248,58 +307,150 @@ export default function InventoryPage() {
                   </select>
                 </div>
 
-                {/* Quantity + UoM — THE CORE FEATURE */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-zinc-700 uppercase tracking-wide">
-                    Kuantitas
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="number"
-                      name="quantity_input"
-                      value={formData.quantity_input}
-                      onChange={handleChange}
-                      min="0"
-                      step="0.01"
-                      placeholder="0"
-                      className="w-24 flex-1 px-3 py-2 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900"
-                      required
-                    />
-                    {/* ── UoM Dropdown ── */}
-                    <select
-                      name="unit"
-                      value={formData.unit}
-                      onChange={handleChange}
-                      className="flex-1 px-3 py-2 border border-zinc-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-zinc-900"
-                    >
-                      <option value="Kg">Kg</option>
-                      <option value="Gram">Gram</option>
-                      <option value="Liter">Liter</option>
-                      <option value="Botol">Botol</option>
-                      <option value="Sachet">Sachet</option>
-                    </select>
-                  </div>
-                </div>
+                {/* ══════════════════════════════════════════════════════
+                    MODE PAKAN: peternak input total harga + qty → sistem
+                    hitung otomatis harga per Kg + sanity check
+                    ══════════════════════════════════════════════════════ */}
+                {isPakan ? (
+                  <>
+                    {/* Total Harga Pembelian */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-zinc-700 uppercase tracking-wide">
+                        Total Harga Pembelian
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm font-medium pointer-events-none">Rp</span>
+                        <input
+                          type="number"
+                          name="total_harga"
+                          value={formData.total_harga}
+                          onChange={handleChange}
+                          min="1"
+                          step="500"
+                          placeholder="Contoh: 350000"
+                          className="w-full pl-9 pr-3 py-2 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900"
+                          required
+                        />
+                      </div>
+                      <p className="text-[10px] text-zinc-400 leading-relaxed">
+                        Jumlah uang yang kamu bayarkan ke toko/agen
+                      </p>
+                    </div>
 
-                {/* Unit Cost */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-zinc-700 uppercase tracking-wide">
-                    Harga Beli per Unit (Rp)
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-2 text-zinc-500 text-sm">Rp</span>
-                    <input
-                      type="number"
-                      name="unit_cost"
-                      value={formData.unit_cost}
-                      onChange={handleChange}
-                      min="0"
-                      placeholder="0"
-                      className="w-full pl-9 pr-3 py-2 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900"
-                      required
-                    />
-                  </div>
-                </div>
+                    {/* Jumlah Pakan (Kg) */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-zinc-700 uppercase tracking-wide">
+                        Jumlah Pakan Dibeli
+                      </label>
+                      <div className="flex gap-2 items-center">
+                        <input
+                          type="number"
+                          name="quantity_input"
+                          value={formData.quantity_input}
+                          onChange={handleChange}
+                          min="0.1"
+                          step="0.5"
+                          placeholder="0"
+                          className="flex-1 px-3 py-2 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900"
+                          required
+                        />
+                        <span className="text-sm font-bold text-zinc-500 px-3 py-2 bg-zinc-100 rounded-lg select-none">Kg</span>
+                      </div>
+                      <p className="text-[10px] text-zinc-400 leading-relaxed">
+                        Berat total yang kamu terima · 1 sak karung = 50 Kg
+                      </p>
+                    </div>
+
+                    {/* Live Preview Harga/Kg */}
+                    {computedUnitCost > 0 && (
+                      <div className={`rounded-xl p-3 border transition-colors ${
+                        isUnitCostWarning
+                          ? 'bg-amber-50 border-amber-200'
+                          : 'bg-blue-50 border-blue-100'
+                      }`}>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-base font-bold ${isUnitCostWarning ? 'text-amber-700' : 'text-blue-700'}`}>
+                            = Rp {Math.round(computedUnitCost).toLocaleString('id-ID')}
+                            <span className="text-xs font-normal ml-0.5">/ Kg</span>
+                          </span>
+                          {isUnitCostWarning && (
+                            <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                          )}
+                        </div>
+                        {isUnitCostWarning ? (
+                          <p className="text-[11px] text-amber-600 mt-1 leading-snug">
+                            {isHargaTerlalu
+                              ? 'Harga per Kg terlalu rendah — pastikan total harga dan jumlah sudah benar.'
+                              : 'Harga per Kg melebihi kisaran wajar — pastikan total harga dan jumlah sudah benar.'}
+                          </p>
+                        ) : (
+                          <p className="text-[11px] text-blue-400 mt-0.5">
+                            Harga per Kg otomatis dihitung · akan dipakai di kalkulasi HPP
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {/* ══════════════════════════════════════════════════
+                        MODE NON-PAKAN: qty + satuan + harga per unit
+                        (Obat / Vaksin / Vitamin / dll)
+                        ══════════════════════════════════════════════════ */}
+
+                    {/* Kuantitas + Satuan */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-zinc-700 uppercase tracking-wide">
+                        Kuantitas
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          name="quantity_input"
+                          value={formData.quantity_input}
+                          onChange={handleChange}
+                          min="0"
+                          step="0.01"
+                          placeholder="0"
+                          className="flex-1 px-3 py-2 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900"
+                          required
+                        />
+                        <select
+                          name="unit"
+                          value={formData.unit}
+                          onChange={handleChange}
+                          className="px-3 py-2 border border-zinc-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-zinc-900"
+                        >
+                          <option value="Botol">Botol</option>
+                          <option value="Sachet">Sachet</option>
+                          <option value="Liter">Liter</option>
+                          <option value="Gram">Gram</option>
+                          <option value="Kg">Kg</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Harga per Unit */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-zinc-700 uppercase tracking-wide">
+                        Harga Beli per Unit (Rp)
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm font-medium pointer-events-none">Rp</span>
+                        <input
+                          type="number"
+                          name="unit_cost"
+                          value={formData.unit_cost}
+                          onChange={handleChange}
+                          min="0"
+                          placeholder="0"
+                          className="w-full pl-9 pr-3 py-2 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900"
+                          required
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 {/* Tanggal Pembelian */}
                 <div className="space-y-1.5">
@@ -315,8 +466,11 @@ export default function InventoryPage() {
                     className="w-full px-3 py-2 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900"
                     required
                   />
-                  <p className="text-[10px] text-zinc-400">
-                    Pembelian dicatat sebagai <span className="font-semibold">Aset Inventaris</span>. Biaya pakan otomatis masuk ke HPP saat pakan dikonsumsi via input harian.
+                  <p className="text-[10px] text-zinc-400 leading-relaxed">
+                    {isPakan
+                      ? <>Pembelian pakan dicatat sebagai <span className="font-semibold">Aset Inventaris</span>. Biaya masuk ke HPP otomatis saat pakan dikonsumsi via input harian.</>
+                      : <>Pembelian obat/vaksin dicatat di <span className="font-semibold">Keuangan</span> sebagai pengeluaran langsung.</>
+                    }
                   </p>
                 </div>
 

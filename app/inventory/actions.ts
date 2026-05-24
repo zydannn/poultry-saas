@@ -119,6 +119,27 @@ export async function submitFeedPurchase(payload: FeedPurchasePayload): Promise<
     return { success: false, error: 'Tanggal pembelian wajib diisi.', code: 'INVALID_INPUT' };
   }
 
+  // ── A2. Sanity check harga pakan (server-side, last-resort guard) ──────────
+  // Kisaran wajar pakan ayam layer Indonesia: Rp 500–100.000/Kg.
+  // Blok di bawah 500 untuk tangkap typo ekstrem (misal lupa isi total, qty terlalu besar).
+  if (payload.category === 'Pakan') {
+    const hargaPerKg = payload.unit_cost;
+    if (hargaPerKg < 500) {
+      return {
+        success: false,
+        error: `Harga pakan per Kg (Rp ${Math.round(hargaPerKg).toLocaleString('id-ID')}/Kg) tidak masuk akal. Periksa kembali total harga dan jumlah yang dimasukkan.`,
+        code: 'INVALID_INPUT',
+      };
+    }
+    if (hargaPerKg > 100_000) {
+      return {
+        success: false,
+        error: `Harga pakan per Kg (Rp ${Math.round(hargaPerKg).toLocaleString('id-ID')}/Kg) melebihi batas wajar. Periksa kembali total harga dan jumlah yang dimasukkan.`,
+        code: 'INVALID_INPUT',
+      };
+    }
+  }
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
