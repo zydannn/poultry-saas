@@ -96,14 +96,16 @@ export default function FinanceTab() {
 
     try {
       if (editing.sourceTable === 'finance_income') {
+        // total_revenue TIDAK disertakan — kolom ini adalah GENERATED ALWAYS
+        // (quantity * price_per_unit) di DB. PostgreSQL otomatis menghitung ulang
+        // saat quantity atau price_per_unit berubah. Mengirim total_revenue
+        // secara eksplisit akan menyebabkan error "can only be updated to DEFAULT".
         const payload = {
-          date:          editing.date,
-          category:      editing.category,
-          description:   editing.notes,
-          quantity:      editing.quantity,
+          date:           editing.date,
+          category:       editing.category,
+          description:    editing.notes,
+          quantity:       editing.quantity,
           price_per_unit: editing.price_per_unit,
-          // total_revenue juga dikirim sebagai fallback; DB trigger BEFORE UPDATE sudah otomatis menghitung ulang
-          total_revenue: (editing.quantity ?? 0) * (editing.price_per_unit ?? 0),
         };
         const { data: updated, error } = await supabase
           .from('finance_income')
