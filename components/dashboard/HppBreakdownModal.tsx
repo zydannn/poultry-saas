@@ -22,11 +22,14 @@ interface FlockDepreciation {
 }
 
 interface BreakdownData {
-  variableCosts: ExpenseLine[];
-  fixedCashCosts: ExpenseLine[];
+  variableCosts: ExpenseLine[];   // BBB + BOP Variabel
+  btklCosts: ExpenseLine[];       // Biaya Tenaga Kerja Langsung (gaji, upah, honor)
+  bopFixedCosts: ExpenseLine[];   // BOP Tetap Cash lainnya (non-BTKL)
   bioDepreciation: FlockDepreciation[];
   totalVC: number;
-  totalFCCash: number;
+  totalBTKL: number;
+  totalBOPFixed: number;
+  totalFCCash: number;            // = totalBTKL + totalBOPFixed
   totalBioDepreciation: number;
   totalFC: number;
   totalCost: number;
@@ -35,6 +38,19 @@ interface BreakdownData {
   hppPerKg: number;
   defaultEggWeight: number;
   monthLabel: string;
+}
+
+// ─── Keyword-based classifier (sama dengan laporan/page.tsx) ──────────────────
+type ExpClass = 'vc' | 'btkl' | 'bop_fixed' | 'skip';
+
+function classifyExpLine(category: string | null, costType: string | null): ExpClass {
+  const cat = (category ?? '').toLowerCase();
+  const ct  = costType ?? '';
+  if (cat.startsWith('pembelian'))                          return 'skip'; // aset inventaris
+  if (/gaji|upah|honor|tenaga kerja/i.test(cat))           return 'btkl'; // BTKL regardless of cost_type
+  if (ct === 'Variable')                                    return 'vc';
+  if (ct === 'Fixed')                                       return 'bop_fixed';
+  return 'skip'; // NULL cost_type + bukan BTKL keyword = tidak diklasifikasi
 }
 
 interface Props {
@@ -120,13 +136,14 @@ export default function HppBreakdownModal({ isOpen, onClose, hpp }: Props) {
         { data: production },
         { data: profile },
       ] = await Promise.all([
-        // 1. Rincian finance_expenses bulan ini (kecuali Pembelian aset)
+        // 1. Rincian finance_expenses bulan ini — SEMUA (kecuali Pembelian aset).
+        //    Klasifikasi pakai keyword (bukan hanya cost_type) agar robust
+        //    meski ada record dengan cost_type = NULL seperti gaji baru.
         supabase
           .from('finance_expenses')
           .select('category, cost_type, amount')
           .gte('date', firstDay)
-          .not('category', 'ilike', 'Pembelian%')
-          .in('cost_type', ['Variable', 'Fixed']),
+          .not('category', 'ilike', 'Pembelian%'),
 
         // 2. Flocks aktif dengan acquisition_cost untuk amortisasi
         supabase
@@ -150,24 +167,30 @@ export default function HppBreakdownModal({ isOpen, onClose, hpp }: Props) {
           .maybeSingle(),
       ]);
 
-      // ── Proses Variable Costs ───────────────────────────────────────────────
-      const vcMap = new Map<string, number>();
-      const fcMap = new Map<string, number>();
+      // ── Klasifikasi expense dengan keyword (sama dg laporan) ───────────────
+      const vcMap      = new Map<string, number>();
+      const btklMap    = new Map<string, number>();
+      const bopFixMap  = new Map<string, number>();
 
       for (const e of expenses ?? []) {
         const amt = Number(e.amount ?? 0);
-        if (e.cost_type === 'Variable') {
-          vcMap.set(e.category, (vcMap.get(e.category) ?? 0) + amt);
-        } else if (e.cost_type === 'Fixed') {
-          fcMap.set(e.category, (fcMap.get(e.category) ?? 0) + amt);
-        }
+        if (amt <= 0) continue;
+        const cls = classifyExpLine(e.category, e.cost_type);
+        if      (cls === 'vc')        vcMap.set(e.category,     (vcMap.get(e.category)     ?? 0) + amt);
+        else if (cls === 'btkl')      btklMap.set(e.category,   (btklMap.get(e.category)   ?? 0) + amt);
+        else if (cls === 'bop_fixed') bopFixMap.set(e.category, (bopFixMap.get(e.category) ?? 0) + amt);
+        // 'skip' = tidak masuk kalkulasi HPP (Pembelian, atau NULL non-gaji)
       }
 
       const variableCosts: ExpenseLine[] = Array.from(vcMap.entries())
         .map(([category, total]) => ({ category, total }))
         .sort((a, b) => b.total - a.total);
 
-      const fixedCashCosts: ExpenseLine[] = Array.from(fcMap.entries())
+      const btklCosts: ExpenseLine[] = Array.from(btklMap.entries())
+        .map(([category, total]) => ({ category, total }))
+        .sort((a, b) => b.total - a.total);
+
+      const bopFixedCosts: ExpenseLine[] = Array.from(bopFixMap.entries())
         .map(([category, total]) => ({ category, total }))
         .sort((a, b) => b.total - a.total);
 
@@ -188,12 +211,14 @@ export default function HppBreakdownModal({ isOpen, onClose, hpp }: Props) {
       });
 
       // ── Hitung totals ───────────────────────────────────────────────────────
-      const totalVC          = variableCosts.reduce((s, e) => s + e.total, 0);
-      const totalFCCash      = fixedCashCosts.reduce((s, e) => s + e.total, 0);
+      const totalVC              = variableCosts.reduce((s, e) => s + e.total, 0);
+      const totalBTKL            = btklCosts.reduce((s, e) => s + e.total, 0);
+      const totalBOPFixed        = bopFixedCosts.reduce((s, e) => s + e.total, 0);
+      const totalFCCash          = totalBTKL + totalBOPFixed;
       const totalBioDepreciation = bioDepreciation.reduce((s, e) => s + e.monthlyAmount, 0);
-      const totalFC          = totalFCCash + totalBioDepreciation;
-      const totalCost        = totalVC + totalFC;
-      const totalEggs        = Math.max(
+      const totalFC              = totalFCCash + totalBioDepreciation;
+      const totalCost            = totalVC + totalFC;
+      const totalEggs            = Math.max(
         (production ?? []).reduce((s, r) => s + Number(r.qty_in ?? 0), 0),
         1,
       );
@@ -202,8 +227,9 @@ export default function HppBreakdownModal({ isOpen, onClose, hpp }: Props) {
       const hppPerKg         = defaultEggWeight > 0 ? hppPerUnit / (defaultEggWeight / 1000) : 0;
 
       setData({
-        variableCosts, fixedCashCosts, bioDepreciation,
-        totalVC, totalFCCash, totalBioDepreciation, totalFC,
+        variableCosts, btklCosts, bopFixedCosts, bioDepreciation,
+        totalVC, totalBTKL, totalBOPFixed, totalFCCash,
+        totalBioDepreciation, totalFC,
         totalCost, totalEggs, hppPerUnit, hppPerKg,
         defaultEggWeight, monthLabel,
       });
@@ -323,7 +349,7 @@ export default function HppBreakdownModal({ isOpen, onClose, hpp }: Props) {
                 )}
               </div>
 
-              {/* ══ BAGIAN II: BIAYA TETAP CASH ══════════════════════════════ */}
+              {/* ══ BAGIAN II: BIAYA TETAP CASH (BTKL + BOP Tetap) ══════════ */}
               <div className="rounded-xl border border-amber-100 overflow-hidden">
                 <button
                   onClick={() => toggleSection('fc')}
@@ -331,7 +357,7 @@ export default function HppBreakdownModal({ isOpen, onClose, hpp }: Props) {
                 >
                   <SectionHeader
                     icon={<Wrench className="w-3.5 h-3.5 text-amber-700" />}
-                    label="Biaya Tetap Cash"
+                    label="Biaya Tetap Cash (BTKL + BOP)"
                     subtotal={data.totalFCCash}
                     total={totalCost}
                     color="bg-amber-50 text-amber-800"
@@ -341,26 +367,63 @@ export default function HppBreakdownModal({ isOpen, onClose, hpp }: Props) {
 
                 {expandedSections.fc && (
                   <div className="divide-y divide-zinc-50">
-                    {data.fixedCashCosts.length === 0 ? (
-                      <p className="px-4 py-3 text-xs text-zinc-400 italic">
-                        Belum ada biaya tetap cash dicatat bulan ini (misal: gaji karyawan).
-                      </p>
-                    ) : (
-                      data.fixedCashCosts.map((e) => (
-                        <div key={e.category} className="px-4 py-2.5">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-zinc-700 font-medium">{e.category}</span>
-                            <span className="text-xs font-bold text-zinc-900">{formatRp(e.total)}</span>
-                          </div>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <ProgressBar value={pct(e.total, totalCost)} color="bg-amber-400" />
-                            <span className="text-[10px] text-zinc-400 whitespace-nowrap w-8 text-right">
-                              {pct(e.total, totalCost)}%
-                            </span>
-                          </div>
+                    {/* ── Sub-seksi BTKL ── */}
+                    {data.btklCosts.length > 0 && (
+                      <>
+                        <div className="px-4 py-1.5 bg-orange-50">
+                          <span className="text-[9px] font-bold uppercase tracking-widest text-orange-500">
+                            II.a Biaya Tenaga Kerja Langsung (BTKL)
+                          </span>
                         </div>
-                      ))
+                        {data.btklCosts.map((e) => (
+                          <div key={e.category} className="px-4 py-2.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-zinc-700 font-medium">{e.category}</span>
+                              <span className="text-xs font-bold text-zinc-900">{formatRp(e.total)}</span>
+                            </div>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <ProgressBar value={pct(e.total, totalCost)} color="bg-orange-400" />
+                              <span className="text-[10px] text-zinc-400 whitespace-nowrap w-8 text-right">
+                                {pct(e.total, totalCost)}%
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </>
                     )}
+
+                    {/* ── Sub-seksi BOP Tetap Cash ── */}
+                    {data.bopFixedCosts.length > 0 && (
+                      <>
+                        <div className="px-4 py-1.5 bg-amber-50">
+                          <span className="text-[9px] font-bold uppercase tracking-widest text-amber-600">
+                            II.b BOP Tetap Cash (Listrik, Disinfektan, dll)
+                          </span>
+                        </div>
+                        {data.bopFixedCosts.map((e) => (
+                          <div key={e.category} className="px-4 py-2.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-zinc-700 font-medium">{e.category}</span>
+                              <span className="text-xs font-bold text-zinc-900">{formatRp(e.total)}</span>
+                            </div>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <ProgressBar value={pct(e.total, totalCost)} color="bg-amber-400" />
+                              <span className="text-[10px] text-zinc-400 whitespace-nowrap w-8 text-right">
+                                {pct(e.total, totalCost)}%
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </>
+                    )}
+
+                    {data.btklCosts.length === 0 && data.bopFixedCosts.length === 0 && (
+                      <p className="px-4 py-3 text-xs text-zinc-400 italic">
+                        Belum ada biaya tetap cash dicatat bulan ini.
+                        Contoh: catat gaji karyawan di menu Keuangan → Pengeluaran.
+                      </p>
+                    )}
+
                     <div className="px-4 py-2 bg-amber-50/50 flex justify-between items-center">
                       <span className="text-[10px] font-semibold text-amber-700 uppercase tracking-wide">FC Cash per Butir</span>
                       <span className="text-xs font-bold text-amber-700">
@@ -429,15 +492,21 @@ export default function HppBreakdownModal({ isOpen, onClose, hpp }: Props) {
                 </p>
 
                 <div className="flex justify-between">
-                  <span className="text-emerald-400">Total Biaya Variabel</span>
+                  <span className="text-emerald-400">I. Biaya Variabel (BBB + BOP Var)</span>
                   <span>{formatRp(data.totalVC)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-amber-400">Total Biaya Tetap Cash</span>
-                  <span>{formatRp(data.totalFCCash)}</span>
+                  <span className="text-orange-400">II.a BTKL (Gaji & Upah)</span>
+                  <span>{formatRp(data.totalBTKL)}</span>
                 </div>
+                {data.totalBOPFixed > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-amber-400">II.b BOP Tetap Cash</span>
+                    <span>{formatRp(data.totalBOPFixed)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
-                  <span className="text-violet-400">Amortisasi Biologis</span>
+                  <span className="text-violet-400">III. Amortisasi Biologis</span>
                   <span>{formatRp(data.totalBioDepreciation)}</span>
                 </div>
 
