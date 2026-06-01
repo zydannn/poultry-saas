@@ -24,6 +24,7 @@ import { supabase } from '@/utils/supabase/client';
 import Link from 'next/link';
 import BEPChart from './BEPChart';
 import SimulationPanel from './dashboard/SimulationPanel';
+import HppBreakdownModal from './dashboard/HppBreakdownModal';
 import TermTooltip from '@/components/TermTooltip';
 import OnboardingGuide from '@/components/OnboardingGuide';
 
@@ -102,6 +103,7 @@ export default function DashboardContent() {
     const [isLoadingLedger, setIsLoadingLedger] = useState(false);
     const [showOnboarding, setShowOnboarding] = useState(false);
     const [fetchError, setFetchError] = useState<string | null>(null);
+    const [isHppBreakdownOpen, setIsHppBreakdownOpen] = useState(false);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -486,9 +488,12 @@ export default function DashboardContent() {
                 {/* Tier 1 - Part 2: Financial Intelligence */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 w-full mt-4">
 
-                    {/* Card 5: HPP — dari analytics_cvp_monthly.hpp_per_butir */}
-                    <div className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md w-full overflow-hidden relative md:col-span-2 lg:col-span-1">
-                        <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 shrink-0">
+                    {/* Card 5: HPP — clickable → HppBreakdownModal */}
+                    <button
+                        onClick={() => setIsHppBreakdownOpen(true)}
+                        className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-sm transition-all hover:shadow-md hover:border-indigo-200 hover:bg-indigo-50/30 w-full overflow-hidden relative md:col-span-2 lg:col-span-1 text-left group cursor-pointer"
+                    >
+                        <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 shrink-0 group-hover:bg-indigo-100 transition-colors">
                             <Calculator className="h-5 w-5 text-indigo-600" />
                         </div>
                         <div className={`absolute top-4 right-4 text-[9px] font-bold px-2 py-0.5 rounded-full ${isEstimated ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
@@ -503,7 +508,12 @@ export default function DashboardContent() {
                                 Setara {formatRupiah(hppPerKg)} / Kg
                             </p>
                         </div>
-                    </div>
+                        {/* Hint klik */}
+                        <p className="mt-2 text-[9px] text-indigo-400 font-semibold flex items-center gap-1 group-hover:text-indigo-600 transition-colors">
+                            <span>Tap untuk lihat rincian biaya</span>
+                            <span>→</span>
+                        </p>
+                    </button>
 
                     {/* Card 6: Saran Harga Jual */}
                     <div className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md w-full overflow-hidden relative">
@@ -748,6 +758,11 @@ export default function DashboardContent() {
                 </div>
             )}
         </main>
+        <HppBreakdownModal
+            isOpen={isHppBreakdownOpen}
+            onClose={() => setIsHppBreakdownOpen(false)}
+            hpp={hpp}
+        />
         <OnboardingGuide
             isOpen={showOnboarding}
             onClose={() => setShowOnboarding(false)}

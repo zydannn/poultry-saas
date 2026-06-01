@@ -101,11 +101,13 @@ export default function KalkulasiHppPage() {
 
           {/* Formula Breakdown */}
           <div className="bg-zinc-900 text-white rounded-xl p-6 shadow-sm font-mono text-sm space-y-2">
-            <p className="text-zinc-400 text-xs mb-3 font-sans not-italic font-semibold uppercase tracking-widest">Formula</p>
-            <p><span className="text-emerald-400">biaya_pakan</span> = populasi × konsumsi_kg × harga_pakan</p>
-            <p><span className="text-emerald-400">amortisasi</span> = populasi × penyusutan_per_ekor</p>
-            <p><span className="text-amber-400">total_biaya</span> = biaya_pakan + amortisasi</p>
-            <p><span className="text-blue-400">hpp_per_butir</span> = total_biaya ÷ telur_dipanen</p>
+            <p className="text-zinc-400 text-xs mb-3 font-sans not-italic font-semibold uppercase tracking-widest">Formula (Full Costing — Berbasis Pengeluaran Aktual)</p>
+            <p><span className="text-emerald-400">total_vc</span> = Σ biaya_pakan_harian + Σ biaya_suplemen (cost_type=Variable)</p>
+            <p><span className="text-emerald-400">total_fc_cash</span> = Σ gaji + listrik + dll (cost_type=Fixed, bukan Pembelian)</p>
+            <p><span className="text-emerald-400">amortisasi_biologis</span> = (harga_pullet ÷ hari_produktif) × hari_dalam_bulan</p>
+            <p><span className="text-amber-400">total_fc</span> = total_fc_cash + amortisasi_biologis</p>
+            <p><span className="text-blue-400">hpp_per_butir</span> = (total_vc + total_fc) ÷ total_telur_panen_bulan_ini</p>
+            <p className="text-zinc-500 text-xs mt-2 font-sans not-italic">* Pembelian Pakan = aset inventaris, BUKAN beban periode — dikecualikan dari HPP</p>
           </div>
 
           {/* Glossary quick-reference */}

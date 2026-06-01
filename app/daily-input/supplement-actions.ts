@@ -62,11 +62,20 @@ export async function submitDailySupplement(
 
   // ── Jika terhubung ke inventaris: deduct stok ─────────────────────────────
   if (payload.inventory_id) {
-    const { data: invItem } = await supabase
+    const { data: invItem, error: invFetchError } = await supabase
       .from('inventory')
       .select('id, quantity, unit_cost, item_name')
       .eq('id', payload.inventory_id)
       .single();
+
+    // BUG FIX: sebelumnya silent fail — jika item tidak ditemukan,
+    // suplemen tersimpan tapi stok tidak dikurangi tanpa peringatan.
+    if (invFetchError || !invItem) {
+      return {
+        success: false,
+        error: 'Item inventaris tidak ditemukan. Suplemen belum tersimpan. Pilih ulang item dari daftar inventaris.',
+      };
+    }
 
     if (invItem) {
       // Deduct quantity — inventory has CHECK (quantity >= 0), jadi akan error jika stok habis
