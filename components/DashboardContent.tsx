@@ -116,8 +116,7 @@ export default function DashboardContent() {
 
                 const [
                     { data: cvpData },
-                    { data: allDailyEggs },
-                    { data: allEggSales },
+                    { data: eggStockData },
                     { data: feedLedgerData },
                     { data: monthlyRecords },
                     { data: flocksData },
@@ -125,10 +124,8 @@ export default function DashboardContent() {
                 ] = await Promise.all([
                     // SSOT: semua kalkulasi finansial dari view
                     supabase.from('analytics_cvp_monthly').select('*').limit(1).maybeSingle(),
-                    // Stok telur: hitung langsung dari daily_records (semua waktu)
-                    supabase.from('daily_records').select('good_eggs, broken_eggs'),
-                    // Stok telur: kurangi semua penjualan telur dari finance_income
-                    supabase.from('finance_income').select('quantity').eq('category', 'Penjualan Telur'),
+                    // Stok telur: 1 RPC aggregasi server-side (ganti 2 full-table-scan)
+                    supabase.rpc('get_egg_stock_totals').single(),
                     // Stok pakan dari ledger view
                     supabase.from('feed_stock_ledger').select('*'),
                     // Daily records bulan ini: untuk panen hari ini & FCR
@@ -160,11 +157,13 @@ export default function DashboardContent() {
                 const defaultEggWeight = Number(profileData?.default_egg_weight_grams) || 60;
                 const hppPerKg = defaultEggWeight > 0 ? hpp / (defaultEggWeight / 1000) : 0;
 
-                // ── Stok telur: panen_total - pecah_total - terjual_total ──────
-                const totalPanen = (allDailyEggs || []).reduce((s, r) => s + Number(r.good_eggs  || 0), 0);
-                const totalPecah = (allDailyEggs || []).reduce((s, r) => s + Number(r.broken_eggs || 0), 0);
-                const totalSold  = (allEggSales  || []).reduce((s, r) => s + Number(r.quantity   || 0), 0);
-                const eggStock   = Math.max(0, totalPanen - totalPecah - totalSold);
+                // ── Stok telur: dari RPC aggregasi (bukan client-side reduce) ──
+                const eggStock = Math.max(
+                    0,
+                    (Number(eggStockData?.total_panen) || 0)
+                    - (Number(eggStockData?.total_pecah) || 0)
+                    - (Number(eggStockData?.total_sold)  || 0)
+                );
 
                 // ── Stok pakan + low stock alerts ─────────────────────────────
                 const feedLedger = (feedLedgerData as FeedLedgerRow[] | null) || [];

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import AppShell from '@/components/AppShell';
 import TermTooltip from '@/components/TermTooltip';
 import { supabase } from '@/utils/supabase/client';
@@ -10,10 +11,19 @@ import {
   Egg, Wheat, Building2, Wrench, Bird, Users, Zap, Factory,
   FileSpreadsheet, Printer, BarChart2,
 } from 'lucide-react';
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, Legend, ResponsiveContainer, ReferenceLine,
-} from 'recharts';
+
+// Recharts di-lazy-load agar tidak masuk bundle utama halaman Laporan
+const ProfitTrendChart = dynamic(
+  () => import('@/components/laporan/ProfitTrendChart'),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-full flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-zinc-300" />
+      </div>
+    ),
+  }
+);
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -84,12 +94,6 @@ const MONTH_NAMES = [
 
 const fmt = (v: number) =>
   new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(v);
-
-const fmtShort = (v: number) => {
-  if (Math.abs(v) >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}jt`;
-  if (Math.abs(v) >= 1_000)     return `${(v / 1_000).toFixed(0)}rb`;
-  return String(Math.round(v));
-};
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
 
@@ -168,20 +172,6 @@ function SubHeader({ label }: { label: React.ReactNode }) {
   return (
     <div className="px-5 py-2 bg-zinc-50 border-t border-zinc-100">
       <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">{label}</p>
-    </div>
-  );
-}
-
-function TrendTooltip({ active, payload, label }: {
-  active?: boolean; payload?: { name: string; value: number; color: string }[]; label?: string;
-}) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 shadow-xl text-xs text-white space-y-1.5">
-      <p className="font-bold text-zinc-300 mb-1">{label}</p>
-      {payload.map(p => (
-        <p key={p.name} style={{ color: p.color }}>{p.name}: {fmt(p.value)}</p>
-      ))}
     </div>
   );
 }
@@ -953,19 +943,7 @@ export default function LaporanPage() {
                 ) : (
                   <>
                     <div className="px-2 pt-4 pb-2 h-64 sm:h-72">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={trend} margin={{ top: 4, right: 8, left: 0, bottom: 0 }} barGap={2}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#f4f4f5" vertical={false} />
-                          <XAxis dataKey="bulan" tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} />
-                          <YAxis tickFormatter={fmtShort} tick={{ fontSize: 10, fill: '#a1a1aa' }} axisLine={false} tickLine={false} width={48} />
-                          <Tooltip content={<TrendTooltip />} />
-                          <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
-                          <ReferenceLine y={0} stroke="#e4e4e7" />
-                          <Bar dataKey="Pendapatan" fill="#10b981" radius={[4,4,0,0]} maxBarSize={32} />
-                          <Bar dataKey="Biaya"      fill="#f43f5e" radius={[4,4,0,0]} maxBarSize={32} />
-                          <Bar dataKey="Profit"     fill="#6366f1" radius={[4,4,0,0]} maxBarSize={32} />
-                        </BarChart>
-                      </ResponsiveContainer>
+                      <ProfitTrendChart trend={trend} />
                     </div>
                     <div className="overflow-x-auto border-t border-zinc-100">
                       <table className="w-full text-xs text-left">
