@@ -158,11 +158,12 @@ export default function DashboardContent() {
                 const hppPerKg = defaultEggWeight > 0 ? hpp / (defaultEggWeight / 1000) : 0;
 
                 // ── Stok telur: dari RPC aggregasi (bukan client-side reduce) ──
+                const eggTotals = eggStockData as { total_panen: number; total_pecah: number; total_sold: number } | null;
                 const eggStock = Math.max(
                     0,
-                    (Number(eggStockData?.total_panen) || 0)
-                    - (Number(eggStockData?.total_pecah) || 0)
-                    - (Number(eggStockData?.total_sold)  || 0)
+                    (Number(eggTotals?.total_panen) || 0)
+                    - (Number(eggTotals?.total_pecah) || 0)
+                    - (Number(eggTotals?.total_sold)  || 0)
                 );
 
                 // ── Stok pakan + low stock alerts ─────────────────────────────
