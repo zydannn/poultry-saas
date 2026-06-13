@@ -71,7 +71,13 @@ export default function LoginPage() {
                 options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
             });
             if (error) {
-                setMessage({ type: 'error', text: t('authError') });
+                const isRateLimit = (error as { status?: number }).status === 429 || error.message?.toLowerCase().includes('rate limit');
+                setMessage({
+                    type: 'error',
+                    text: isRateLimit
+                        ? 'Terlalu banyak percobaan. Tunggu beberapa menit lalu coba daftar lagi.'
+                        : t('authError'),
+                });
             } else {
                 setMessage({ type: 'success', text: t('checkEmail') });
             }

@@ -46,7 +46,13 @@ export default function ResetPasswordPage() {
     setLoading(false);
 
     if (error) {
-      setMessage({ type: 'error', text: 'Gagal mengirim email. Periksa alamat email Anda.' });
+      const isRateLimit = (error as { status?: number }).status === 429 || error.message?.toLowerCase().includes('rate limit');
+      setMessage({
+        type: 'error',
+        text: isRateLimit
+          ? 'Terlalu banyak percobaan pengiriman email. Tunggu beberapa menit lalu coba lagi.'
+          : 'Gagal mengirim email. Pastikan email terdaftar di akun PoultryOS.',
+      });
     } else {
       setMessage({
         type: 'success',
