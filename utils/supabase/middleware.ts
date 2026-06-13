@@ -31,22 +31,25 @@ export async function updateSession(request: NextRequest) {
     } = await supabase.auth.getUser();
 
     const { pathname } = request.nextUrl;
-    const isAuthRoute =
+
+    // Routes yang bisa diakses tanpa login (public)
+    const isPublicRoute =
+        pathname === '/' ||
         pathname.startsWith('/login') ||
         pathname.startsWith('/auth') ||
         pathname.startsWith('/reset-password');
 
-    // If not logged in and not on an auth route → redirect to /login
-    if (!user && !isAuthRoute) {
+    // User tidak login dan mencoba akses route protected → redirect ke /login
+    if (!user && !isPublicRoute) {
         const url = request.nextUrl.clone();
         url.pathname = '/login';
         return NextResponse.redirect(url);
     }
 
-    // If logged in and on /login → redirect to dashboard
-    if (user && pathname === '/login') {
+    // User sudah login dan mencoba akses /login atau / (landing) → redirect ke /dashboard
+    if (user && (pathname === '/login' || pathname === '/')) {
         const url = request.nextUrl.clone();
-        url.pathname = '/';
+        url.pathname = '/dashboard';
         return NextResponse.redirect(url);
     }
 

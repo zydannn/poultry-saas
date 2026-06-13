@@ -76,7 +76,7 @@ export default function ResetPasswordPage() {
       setMessage({ type: 'error', text: 'Gagal memperbarui password. Coba minta link reset baru.' });
     } else {
       setMode('done');
-      setTimeout(() => router.push('/'), 3000);
+      setTimeout(() => router.push('/dashboard'), 3000);
     }
   };
 

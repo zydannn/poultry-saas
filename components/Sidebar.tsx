@@ -27,7 +27,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-    { href: '/',             icon: LayoutDashboard, labelKey: 'navDashboard'  },
+    { href: '/dashboard',    icon: LayoutDashboard, labelKey: 'navDashboard'  },
     { href: '/daily-input',  icon: ClipboardList,   labelKey: 'navDailyInput' },
     { href: '/flocks',       icon: Bird,            labelKey: 'navFlocks'     },
     { href: '/inventory',  icon: Package,         labelKey: 'navInventory'  },
