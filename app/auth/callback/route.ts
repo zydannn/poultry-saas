@@ -12,6 +12,10 @@ export async function GET(request: Request) {
     }
 
     // Support ?next= for password reset redirect
-    const next = requestUrl.searchParams.get('next') ?? '/';
-    return NextResponse.redirect(`${origin}${next}`);
+    const next = requestUrl.searchParams.get('next') ?? '/dashboard';
+    // Flag recovery flow so reset-password page knows to show the update form
+    const destination = next === '/reset-password'
+        ? `${origin}${next}?recovery=1`
+        : `${origin}${next}`;
+    return NextResponse.redirect(destination);
 }

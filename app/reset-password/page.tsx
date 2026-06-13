@@ -19,13 +19,14 @@ export default function ResetPasswordPage() {
   const [message, setMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
 
   useEffect(() => {
-    // Jika user sudah punya session aktif (datang dari link email reset),
-    // langsung tampilkan form update password
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) setMode('update');
-    });
+    // PKCE flow: callback route adds ?recovery=1 after exchanging the code server-side.
+    // Implicit flow: PASSWORD_RECOVERY event fires when hash token is detected client-side.
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('recovery') === '1') {
+      setMode('update');
+      return;
+    }
 
-    // Listen event PASSWORD_RECOVERY dari Supabase OAuth flow
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') setMode('update');
     });
