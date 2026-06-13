@@ -17,8 +17,8 @@ import {
 export default function KalkulasiHppPage() {
   return (
     <AppShell>
-      <div className="min-h-screen bg-zinc-50 p-6">
-        <div className="max-w-3xl mx-auto space-y-6">
+      <div className="min-h-screen bg-zinc-50 p-4 sm:p-6">
+        <div className="max-w-4xl mx-auto space-y-5">
 
           <div>
             <h1 className="text-2xl font-bold text-zinc-900">

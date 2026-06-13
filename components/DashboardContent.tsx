@@ -316,8 +316,8 @@ export default function DashboardContent() {
 
     if (isLoading) {
         return (
-            <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 bg-zinc-50 min-h-[calc(100vh-64px)]">
-                <div className="mb-8">
+            <main className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8 bg-zinc-50 min-h-[calc(100vh-64px)]">
+                <div className="mb-5">
                     <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900">Executive Dashboard</h1>
                     <p className="mt-1 text-sm text-zinc-500 truncate">Tinjauan bisnis utama dan status operasional peternakan.</p>
                 </div>
@@ -351,10 +351,10 @@ export default function DashboardContent() {
 
     return (
         <>
-        <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 bg-zinc-50 min-h-[calc(100vh-64px)] w-full overflow-hidden">
+        <main className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8 bg-zinc-50 min-h-[calc(100vh-64px)] w-full overflow-hidden">
 
             {/* Header */}
-            <div className="mb-8 flex items-start justify-between gap-4">
+            <div className="mb-5 flex items-start justify-between gap-4">
                 <div>
                     <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900 break-words">
                         Executive Dashboard
@@ -424,10 +424,10 @@ export default function DashboardContent() {
                 </div>
             )}
 
-            <div className="space-y-8">
+            <div className="space-y-5">
 
                 {/* Tier 1 - Part 1: Basic Metrics */}
-                <div className="grid grid-cols-2 gap-4 w-full">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 w-full">
 
                     {/* Card 1: Panen Hari Ini */}
                     <div className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md w-full overflow-hidden">
@@ -486,7 +486,7 @@ export default function DashboardContent() {
                 </div>
 
                 {/* Tier 1 - Part 2: Financial Intelligence */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 w-full mt-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
 
                     {/* Card 5: HPP — clickable → HppBreakdownModal */}
                     <button

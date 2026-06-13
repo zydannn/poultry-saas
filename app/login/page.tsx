@@ -104,7 +104,7 @@ export default function LoginPage() {
                 style={{ opacity: showSplash ? 0 : 1 }}
             >
                 {/* ── Kiri: Branding Panel (hidden di mobile) ── */}
-                <div className="hidden lg:flex lg:w-1/2 xl:w-[55%] flex-col justify-between bg-zinc-950 p-10 xl:p-14 relative overflow-hidden">
+                <div className="hidden md:flex md:w-5/12 lg:w-1/2 xl:w-[55%] flex-col justify-between bg-zinc-950 p-8 lg:p-10 xl:p-14 relative overflow-hidden">
                     {/* Background decoration */}
                     <div className="absolute inset-0 opacity-[0.03]"
                         style={{
