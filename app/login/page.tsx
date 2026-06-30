@@ -23,6 +23,8 @@ export default function LoginPage() {
     const [tab, setTab] = useState<'signin' | 'signup'>('signin');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [fullName, setFullName] = useState('');
+    const [whatsapp, setWhatsapp] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [resending, setResending] = useState(false);
@@ -65,10 +67,21 @@ export default function LoginPage() {
                 }, 3200);
             }
         } else {
+            if (!fullName.trim()) {
+                setMessage({ type: 'error', text: 'Nama lengkap wajib diisi.' });
+                setLoading(false);
+                return;
+            }
             const { error } = await supabase.auth.signUp({
                 email,
                 password,
-                options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+                options: {
+                    emailRedirectTo: `${window.location.origin}/auth/callback`,
+                    data: {
+                        full_name: fullName.trim(),
+                        whatsapp_number: whatsapp.trim() || null,
+                    },
+                },
             });
             if (error) {
                 const isRateLimit = (error as { status?: number }).status === 429 || error.message?.toLowerCase().includes('rate limit');
@@ -214,6 +227,25 @@ export default function LoginPage() {
 
                         {/* Form */}
                         <form onSubmit={handleAuth} className="flex flex-col gap-4">
+                            {/* Nama Lengkap (hanya saat daftar) */}
+                            {tab === 'signup' && (
+                                <div className="flex flex-col gap-1.5">
+                                    <label htmlFor="fullName" className="text-sm font-medium text-zinc-700">
+                                        Nama Lengkap
+                                    </label>
+                                    <input
+                                        id="fullName"
+                                        type="text"
+                                        autoComplete="name"
+                                        required
+                                        value={fullName}
+                                        onChange={(e) => setFullName(e.target.value)}
+                                        placeholder="Nama Anda"
+                                        className="h-11 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-zinc-200 transition-all"
+                                    />
+                                </div>
+                            )}
+
                             {/* Email */}
                             <div className="flex flex-col gap-1.5">
                                 <label htmlFor="email" className="text-sm font-medium text-zinc-700">
@@ -258,6 +290,26 @@ export default function LoginPage() {
                                     </button>
                                 </div>
                             </div>
+
+                            {/* No. WhatsApp (hanya saat daftar, opsional) */}
+                            {tab === 'signup' && (
+                                <div className="flex flex-col gap-1.5">
+                                    <label htmlFor="whatsapp" className="text-sm font-medium text-zinc-700">
+                                        No. WhatsApp <span className="font-normal text-zinc-400">(opsional)</span>
+                                    </label>
+                                    <input
+                                        id="whatsapp"
+                                        type="tel"
+                                        inputMode="numeric"
+                                        autoComplete="tel"
+                                        value={whatsapp}
+                                        onChange={(e) => setWhatsapp(e.target.value)}
+                                        placeholder="08xxxxxxxxxx"
+                                        className="h-11 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-zinc-200 transition-all"
+                                    />
+                                    <p className="text-xs text-zinc-400">Untuk notifikasi &amp; info penting. Bisa diisi nanti.</p>
+                                </div>
+                            )}
 
                             {/* Lupa password */}
                             {tab === 'signin' && (

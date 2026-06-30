@@ -1,5 +1,6 @@
 import AppShell from '@/components/AppShell';
 import DashboardContent from '@/components/DashboardContent';
+import AiAssistant from '@/components/AiAssistant';
 import { createClient } from '@/utils/supabase/server';
 import { redirect } from 'next/navigation';
 
@@ -14,6 +15,7 @@ export default async function DashboardPage() {
   return (
     <AppShell userEmail={user.email}>
       <DashboardContent />
+      <AiAssistant />
     </AppShell>
   );
 }

@@ -1,106 +1,119 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { ShieldCheck, Zap, LineChart, Globe } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { ShieldCheck, Zap, LineChart, Globe, Trophy } from 'lucide-react';
 
 const POINTS = [
-    {
-        icon: Globe,
-        title: 'Dibuat untuk Peternak Indonesia',
-        desc: 'Antarmuka dalam Bahasa Indonesia, format mata uang Rupiah, dan alur kerja sesuai kebiasaan peternak lokal.',
+    { 
+        icon: Globe, 
+        title: 'Dibuat Khusus Peternak Indonesia', 
+        desc: 'Bahasa Indonesia yang mudah dipahami, standar konversi kilogram telur nasional, serta mata uang Rupiah siap cetak.',
+        color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
     },
-    {
-        icon: LineChart,
-        title: 'Operasional + Keuangan dalam Satu Platform',
-        desc: 'Tidak perlu aplikasi terpisah. Dari catatan harian hingga laporan laba rugi, semuanya tersinkron otomatis.',
+    { 
+        icon: LineChart, 
+        title: 'Satu Aplikasi untuk Semua Data', 
+        desc: 'Tidak perlu spreadsheet atau buku terpisah. Dari log harian kandang hingga rekap laba rugi tersinkronisasi sempurna.',
+        color: 'text-violet-400 bg-violet-500/10 border-violet-500/20'
     },
-    {
-        icon: Zap,
-        title: 'Kalkulasi Instan, Data Akurat',
-        desc: 'HPP, BEP, dan profit dihitung otomatis di sisi server — tidak ada perhitungan manual yang bisa salah.',
+    { 
+        icon: Zap, 
+        title: 'Kalkulasi Instan & Otomatis', 
+        desc: 'HPP dan profit dihitung real-time langsung oleh server kami. Mengurangi kesalahan hitung manual yang merugikan.',
+        color: 'text-amber-400 bg-amber-500/10 border-amber-500/20'
     },
-    {
-        icon: ShieldCheck,
-        title: 'Data Aman & Privat',
-        desc: 'Setiap akun terisolasi dengan Row-Level Security. Data Anda hanya bisa diakses oleh Anda.',
+    { 
+        icon: ShieldCheck, 
+        title: 'Privasi & Data Terenkripsi', 
+        desc: 'Semua database diamankan menggunakan Row-Level Security Supabase. Data peternakan Anda sepenuhnya aman milik Anda.',
+        color: 'text-blue-400 bg-blue-500/10 border-blue-500/20'
     },
 ];
 
-function useScrollReveal(threshold = 0.1) {
-    const ref = useRef<HTMLDivElement>(null);
-    useEffect(() => {
-        const el = ref.current;
-        if (!el) return;
-        el.style.opacity = '0';
-        el.style.transform = 'translateY(32px)';
-        const obs = new IntersectionObserver(
-            ([entry]) => {
-                if (entry.isIntersecting) {
-                    el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
-                    el.style.opacity = '1';
-                    el.style.transform = 'translateY(0)';
-                    obs.disconnect();
-                }
-            },
-            { threshold }
-        );
-        obs.observe(el);
-        return () => obs.disconnect();
-    }, [threshold]);
-    return ref;
-}
+const containerVariants = {
+    hidden: {},
+    show: {
+        transition: {
+            staggerChildren: 0.08
+        }
+    }
+};
+
+const itemVariants = {
+    hidden: { opacity: 0, y: 24 },
+    show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: 'easeOut' as const } }
+};
 
 export default function WhySection() {
-    const ref = useScrollReveal();
-
     return (
-        <section className="bg-zinc-950 py-20 sm:py-28 px-4">
-            <div ref={ref} className="mx-auto max-w-5xl">
+        <section className="bg-zinc-950 py-20 sm:py-28 px-4 relative overflow-hidden">
+            {/* Dark background grids & lights */}
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_50%_50%_at_50%_50%,rgba(16,185,129,0.06),transparent)]" />
+            <div className="absolute right-[-10%] top-[-10%] h-[30rem] w-[30rem] rounded-full bg-emerald-500/5 blur-3xl pointer-events-none" />
+
+            <div className="mx-auto max-w-5xl relative z-10">
                 {/* Header */}
-                <div className="text-center mb-14">
-                    <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-zinc-500">
-                        Mengapa PoultryOS
+                <motion.div 
+                    initial={{ opacity: 0, y: 24 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true, amount: 0.3 }}
+                    transition={{ duration: 0.6 }}
+                    className="text-center mb-16"
+                >
+                    <p className="mb-3 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-emerald-400">
+                        <Trophy className="h-3.5 w-3.5" /> Mengapa Memilih Kami
                     </p>
-                    <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white leading-tight">
-                        Platform yang Dibangun
-                        <br />
-                        <span className="text-zinc-400">Bersama Peternak</span>
+                    <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-white leading-tight">
+                        Menggabungkan Operasional <br className="sm:block hidden" />
+                        Dengan <span className="bg-gradient-to-r from-emerald-400 to-amber-300 bg-clip-text text-transparent">Manajemen Finansial</span>
                     </h2>
-                    <p className="mt-4 text-sm sm:text-base text-zinc-500 max-w-xl mx-auto">
-                        Bukan sekadar spreadsheet digital — PoultryOS menggabungkan operasional peternakan
-                        dengan pengelolaan keuangan yang sesungguhnya.
+                    <p className="mt-4 text-sm sm:text-base text-zinc-400 max-w-xl mx-auto font-medium">
+                        Bukan sekadar buku catatan digital — PoultryOS memberikan wawasan bisnis nyata untuk mengoptimalkan profitabilitas peternakan Anda.
                     </p>
-                </div>
+                </motion.div>
 
-                {/* Points grid */}
-                <div className="grid sm:grid-cols-2 gap-5">
-                    {POINTS.map(({ icon: Icon, title, desc }) => (
-                        <div
-                            key={title}
-                            className="group rounded-2xl border border-white/5 bg-white/[0.03] p-6 transition-all duration-300 hover:border-white/10 hover:bg-white/[0.06]"
+                {/* Points Grid */}
+                <motion.div 
+                    variants={containerVariants}
+                    initial="hidden"
+                    whileInView="show"
+                    viewport={{ once: true, amount: 0.15 }}
+                    className="grid sm:grid-cols-2 gap-6"
+                >
+                    {POINTS.map(({ icon: Icon, title, desc, color }) => (
+                        <motion.div 
+                            key={title} 
+                            variants={itemVariants}
+                            className="group rounded-2xl border border-white/5 bg-white/[0.02] p-6 hover:border-white/10 hover:bg-white/[0.04] transition-all duration-300 shadow-xl"
                         >
-                            <div className="mb-4 inline-flex rounded-xl border border-white/10 bg-white/5 p-3">
-                                <Icon className="h-5 w-5 text-zinc-300" />
+                            <div className={`mb-4 inline-flex rounded-xl border p-3 ${color}`}>
+                                <Icon className="h-5 w-5" />
                             </div>
-                            <h3 className="mb-2 text-sm font-semibold text-white">{title}</h3>
-                            <p className="text-sm text-zinc-500 leading-relaxed">{desc}</p>
-                        </div>
+                            <h3 className="mb-2 text-sm font-bold text-white tracking-tight">{title}</h3>
+                            <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed font-medium">{desc}</p>
+                        </motion.div>
                     ))}
-                </div>
+                </motion.div>
 
-                {/* Stats bar */}
-                <div className="mt-12 grid grid-cols-3 gap-4 rounded-2xl border border-white/5 bg-white/[0.03] p-6">
+                {/* Dark Glass Stats Row */}
+                <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true, amount: 0.2 }}
+                    transition={{ duration: 0.6 }}
+                    className="mt-14 grid grid-cols-3 gap-4 rounded-2xl border border-white/5 bg-white/[0.01] p-6 backdrop-blur-sm shadow-2xl"
+                >
                     {[
-                        { value: '6+', label: 'Modul terintegrasi' },
-                        { value: '100%', label: 'Berbasis cloud' },
-                        { value: 'Rp 0', label: 'Biaya berlangganan' },
+                        { value: '6+', label: 'Modul Integrasi' },
+                        { value: '100%', label: 'Akses Cloud' },
+                        { value: 'Selamanya', label: 'Biaya Lisensi' },
                     ].map(({ value, label }) => (
                         <div key={label} className="text-center">
-                            <p className="text-2xl sm:text-3xl font-bold text-white">{value}</p>
-                            <p className="mt-1 text-xs text-zinc-500">{label}</p>
+                            <p className="text-xl sm:text-3xl font-black text-white">{value}</p>
+                            <p className="mt-1 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{label}</p>
                         </div>
                     ))}
-                </div>
+                </motion.div>
             </div>
         </section>
     );
